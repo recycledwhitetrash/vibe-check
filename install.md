@@ -339,6 +339,10 @@ Tell the user:
 The 6 skill commands are ready in `.claude/commands/`. Your `CLAUDE.md` has been updated
 with a code commenting standard and a quick-reference guide to the commands.
 
+**Before running the first command:** reload VS Code so it picks up the new skill files.
+Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and select **Developer: Reload Window**.
+Then open a new conversation — the `/vc-*` commands will be available.
+
 **Next step: run `/vc-bootstrap`**
 
 This will:

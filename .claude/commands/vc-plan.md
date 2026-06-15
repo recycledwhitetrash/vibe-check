@@ -1,6 +1,6 @@
 # /vc-plan
 
-<!-- version: 2026-06-14 -->
+<!-- version: 2026-06-15.1 -->
 
 The project coordinator for your entire codebase. Run it before writing code to plan a
 feature, typically from your main branch to pick up the next thing to build, or when you're not sure
@@ -29,7 +29,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-plan` version matches `2026-06-14`**: proceed silently.
+**Fetch succeeded — `vc-plan` version matches `2026-06-15.1`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -137,6 +137,60 @@ Store the resolved value as BASE_BRANCH — this is the branch all features bran
 </mandatory>
 
 **If the current branch IS the default branch:**
+
+### Deferred findings check
+
+Use the Glob tool to list all files matching `.vibe-check/vc-audit/*.md`. For each file found, use the Read tool to scan for lines beginning with `D-` in the Deferred section. Collect all deferred findings across all audit artifacts, noting the source branch slug (from the filename) and the full finding entry for each.
+
+If no deferred findings exist: continue silently to the roadmap check.
+
+If deferred findings exist: tell the user:
+
+"**Carry-forward debt:** [N] finding(s) deferred from previous audits:
+[list each as: D-NNN ([branch-slug]): description]"
+
+<mandatory>Call AskUserQuestion with:
+- Question: "You have [N] deferred finding(s) from previous audits. Address one now or start a new feature?"
+- Options:
+  - "Address a deferred finding — plan the fix"
+  - "Start a new feature instead"
+</mandatory>
+
+If "Start a new feature instead": continue to the roadmap check.
+
+If "Address a deferred finding": present findings as selectable options in batches of 3. Sort by severity (critical first, then high, medium, low).
+
+<mandatory>Call AskUserQuestion with:
+- Question: "Which deferred finding would you like to fix? (Or type `[branch-slug] D-NNN` in the Other box — e.g. `auth D-002`.)"
+- Options: [list the next 3 findings as "[branch-slug] D-NNN — [short description]"; if more than 3 remain in this batch, add a 4th option: "Next batch → ([N] more findings)"]
+</mandatory>
+
+If "Next batch →": advance to the next 3 findings and repeat the AskUserQuestion. Continue until the user selects a finding or exhausts all batches (if all batches shown with no selection, start again from the first batch).
+
+If the user typed in the Other box: match the input against the full findings list by branch slug and finding ID. If an unambiguous match is found, use it. If the input is ambiguous or doesn't match, tell the user which findings were closest and restart the batch from the beginning.
+
+Once a finding is selected, extract from its artifact entry:
+- Finding ID (D-NNN)
+- Source branch slug (from the artifact filename)
+- Severity (critical/high/medium/low)
+- File and line reference
+- Description and fix direction
+
+Create a branch slug: `fix-[source-branch-slug]-[finding-id-lowercase]` (e.g. `fix-auth-d-001`). Run `git branch --list "fix-[source-branch-slug]-[finding-id-lowercase]*"` to check for collisions — if one exists, append `-2` (or the next available number).
+
+Run `git status --short`. If uncommitted changes exist: use the same carry-over/stash AskUserQuestion as defined later in this Phase 0 for new branch creation.
+
+Run `git checkout -b [final-slug]`. Confirm: "You are now on branch `[final-slug]`."
+
+Tell the user: "Planning a fix for [D-NNN] from the [source-branch-slug] audit. Pre-loading the finding as your problem statement."
+
+Skip Phase 1's opening question. Instead treat the finding as pre-loaded context:
+- **Problem:** [description from the finding]
+- **File/line:** [file:line reference]
+- **Severity:** [severity]
+- **Fix direction:** [fix direction, if FIXABLE]
+
+Present this to the user and ask: "Does this capture what needs fixing? Add any additional context." Then proceed through Phases 2–10 normally. The plan artifact must include `**Resolves:** D-NNN ([source-branch-slug])` in the header so the fix is traceable back to the original finding.
 
 Check for a roadmap at `.vibe-check/vc-plan/roadmap.md` using the Read tool, and for any
 plan files using the Glob tool to list `.vibe-check/vc-plan/*.md` (exclude `roadmap.md`).
@@ -560,11 +614,16 @@ Run `git branch --list "[branch-slug]*"` to check for collisions. Only treat as 
 a branch name is exactly `[branch-slug]` or matches `[branch-slug]-N` where N is a whole number.
 If a collision exists, take the highest matching N and append N+1 to produce the final slug.
 
+Pull the latest from the remote before branching so the new branch starts from the most recent base:
+- bash/zsh: `git pull origin [BASE_BRANCH]`
+- PowerShell: run as a separate command: `git pull origin [BASE_BRANCH]`
+If the pull fails (no remote, not authenticated, or network error): continue with a warning — "Could not pull latest [BASE_BRANCH] from origin — new branch will start from local state."
+
 Run `git status --short`. If uncommitted changes exist:
 <mandatory>Call AskUserQuestion with:
 - Question: "You have uncommitted changes on [BASE_BRANCH] — these will carry over to the new branch `[final-slug]`. Carrying them over means those edits will be part of this feature branch (useful if the changes belong to this feature). Stashing them keeps [BASE_BRANCH] clean and leaves the changes parked until you need them. What would you like to do?"
 - Options:
-  - "Carry them over — these changes belong to this feature branch"
+  - "Carry them over — these changes belong to this feature branch (Recommended)"
   - "Stash them — keep [BASE_BRANCH] clean, I'll decide later"
 </mandatory>
 If stash: run `git stash`. After the branch is created, tell the user: "Your changes on [BASE_BRANCH] have been temporarily saved (stashed) — they are not lost, just parked. Run `git stash pop` if you want to restore them on this new branch."
@@ -1336,7 +1395,7 @@ Output the Start here instruction directly in your response as a code block so t
 can copy it without opening the artifact:
 
 ```
-Read the plan at `.vibe-check/vc-plan/[branch-slug].md`. Implement the [approach]: [directives].
+Read the plan at `.vibe-check/vc-plan/[branch-slug].md`. Implement the [approach]: [directives]. Do not make any git commits during implementation — committing happens after /vc-audit and /vc-ship.
 ```
 
 </phase>
@@ -1358,6 +1417,47 @@ Check whether `.vibe-check/vc-plan/roadmap.md` exists using the Read tool. If it
 
 If the roadmap does not exist, or no matching feature is found: skip this step silently.
 
+### Update README
+
+Use the Read tool to check whether `README.md` exists in the project root. Check whether it contains a section headed `## Running locally` or `## Getting started` (case-insensitive).
+
+If the section **is already present**: skip this step.
+
+If `README.md` **does not exist**: use the Write tool to create it:
+
+```
+# [project name from the plan]
+
+[one-sentence description from the plan]
+
+## Running locally
+
+[install command based on tech stack]
+
+[run command based on tech stack]
+```
+
+If `README.md` **exists but lacks the section**: use the Edit tool to append:
+
+```
+## Running locally
+
+[install command based on tech stack]
+
+[run command based on tech stack]
+```
+
+Derive the commands from the technology stack decided in this plan. Common patterns:
+- **Node.js / React / Next.js**: `npm install` → `npm run dev` or `npm start`
+- **Python / Django**: `pip install -r requirements.txt` → `python manage.py runserver`
+- **Python / Flask**: `pip install -r requirements.txt` → `flask run`
+- **Python script**: `pip install -r requirements.txt` → `python [main file]`
+- **Go**: `go run .`
+- **Ruby on Rails**: `bundle install` → `rails server`
+- **Rust**: `cargo run`
+
+If the stack doesn't match a pattern above, use judgment from the plan discussion.
+
 ### Commit the plan artifact
 
 <mandatory>Call AskUserQuestion with:
@@ -1368,8 +1468,8 @@ If the roadmap does not exist, or no matching feature is found: skip this step s
 </mandatory>
 
 If yes:
-- bash/zsh: `git add .vibe-check/ && git commit -m "docs: add plan for [branch-slug]"`
-- PowerShell: run as two separate commands: `git add .vibe-check/` then `git commit -m "docs: add plan for [branch-slug]"`
+- bash/zsh: `git add .vibe-check/ README.md && git commit -m "docs: add plan for [branch-slug]"`
+- PowerShell: run as two separate commands: `git add .vibe-check/ README.md` then `git commit -m "docs: add plan for [branch-slug]"`
 If no: continue.
 
 ### Tell the user
@@ -1678,7 +1778,7 @@ Run `git status --short`. If uncommitted changes exist:
 <mandatory>Call AskUserQuestion with:
 - Question: "You have uncommitted changes on [BASE_BRANCH] — these will carry over to the new branch `[final-slug]`. Carrying them over means those edits will be part of this feature branch. Stashing them keeps [BASE_BRANCH] clean. What would you like to do?"
 - Options:
-  - "Carry them over — these changes belong to this feature branch"
+  - "Carry them over — these changes belong to this feature branch (Recommended)"
   - "Stash them — keep [BASE_BRANCH] clean, I'll decide later"
 </mandatory>
 If stash: run `git stash`. After the branch is created, tell the user: "Your changes on [BASE_BRANCH] have been temporarily saved (stashed) — they are not lost, just parked. Run `git stash pop` if you want to restore them on this new branch."

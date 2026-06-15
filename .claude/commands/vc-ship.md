@@ -1,6 +1,6 @@
 # /vc-ship — Ship Flow
 
-<!-- version: 2026-06-14 -->
+<!-- version: 2026-06-15.6 -->
 
 Guides you through a safe push-and-PR flow for a feature branch. Before pushing, runs a
 gitleaks secret scan (hard stop on any detected secrets), a lint check, and test coverage
@@ -25,7 +25,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-ship` version matches `2026-06-14`**: proceed silently.
+**Fetch succeeded — `vc-ship` version matches `2026-06-15.6`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -123,18 +123,6 @@ local branches.
 </mandatory>
 Run `git checkout [selected branch name]` to switch to that branch.
 Re-read `git branch --show-current` to confirm the branch name, then continue normally.
-
-**`git status --porcelain` is non-empty** (uncommitted changes exist):
-<mandatory>Call AskUserQuestion with:
-- Question: "There are uncommitted changes on this branch. They will not be included in the PR. Do you want to commit or stash them first?"
-- Options:
-  - "Pause — I will commit or stash my changes first"
-  - "Continue — the uncommitted changes are intentionally excluded"
-</mandatory>
-If the user pauses: stop here.
-If the user continues: note the file paths from the already-collected `git status --porcelain`
-output as `[excluded-files]` (these will be written to the state file after slug derivation
-below).
 
 **Current branch is a default branch** (main, master, or develop):
 <mandatory>Call AskUserQuestion with:
@@ -514,8 +502,8 @@ Coverage command by framework:
 
 | Framework | npm | pnpm | yarn | bun |
 |-----------|-----|------|------|-----|
-| Jest | `npm test -- --coverage` | `pnpm test -- --coverage` | `yarn test --coverage` | — |
-| Vitest | `npx vitest run --coverage` | `pnpm dlx vitest run --coverage` | `yarn dlx vitest run --coverage` | — |
+| Jest | `npm test -- --coverage --coverageReporters=text` | `pnpm test -- --coverage --coverageReporters=text` | `yarn test --coverage --coverageReporters=text` | — |
+| Vitest | `npx vitest run --coverage --coverage.reporter=text` | `pnpm dlx vitest run --coverage --coverage.reporter=text` | `yarn dlx vitest run --coverage --coverage.reporter=text` | — |
 | bun test | — | — | — | `bun test --coverage` |
 | Unknown | see handler below |
 
@@ -534,7 +522,7 @@ Jest unless PKG_MANAGER is `bun`) to install and configure a framework, then run
 If Other: ask the user what coverage command to run. If they cannot provide one, note
 "tests — not configured" and proceed to Phase 3.
 
-**If test tooling is found**: run the coverage command per the detection above.
+**If test tooling is found**: run the coverage command per the detection above. After running, check whether a `coverage/` or `.nyc_output/` directory was created anyway (run `ls coverage/ 2>/dev/null || ls .nyc_output/ 2>/dev/null`). If either exists, add `coverage/` and `.nyc_output/` to `.gitignore` now (check first with the Read tool to avoid duplicates), then tell the user: "Added `coverage/` to .gitignore — coverage reports will no longer appear as untracked files."
 
 **If no test tooling is found**: detect the project stack and set it up before running.
 
@@ -732,19 +720,31 @@ Run:
 git log BASE_BRANCH...HEAD --oneline
 ```
 
-Scan the commit messages for patterns that indicate non-bisectable commits. Flag any message that:
-- Contains `wip`, `fixup`, `squash`, `temp`, `debug`, `checkpoint` (case-insensitive)
-- Starts with `fixup!` or `squash!` (git rebase shorthand)
-- Is very short (1–3 characters, e.g. "." or "x")
+Scan the commit log for commits that are not bisectable. Flag any commit that:
+- Has a message containing `wip`, `fixup`, `squash`, `temp`, `debug`, `checkpoint` (case-insensitive)
+- Has a message starting with `fixup!` or `squash!`
+- Has a message that is very short (1–3 characters, e.g. "." or "x")
+- Touches **more than 10 files** in a single commit (run `git diff-tree --no-commit-id -r --name-only [commit-hash] | wc -l` for each commit to count)
+
+Also run:
+```bash
+git status --short
+```
 
 Bisectable branches have clean, atomic commits — each one leaves the codebase in a working
 state with a meaningful message. This makes `git bisect` reliable for tracking down regressions.
 
-If no flagged commits: proceed silently to Phase 4.
+Trigger the regroup offer if **any** of the following are true:
+- A commit message contains `wip`, `fixup`, `squash`, `temp`, `debug`, `checkpoint`, starts with `fixup!` or `squash!`, or is very short (1–3 characters)
+- Any single commit touches more than 10 files
+- `git status --short` is non-empty (uncommitted changes exist that need to be organized into commits)
 
-If flagged commits are found:
+If none of these are true: proceed silently to Phase 4.
+
+If the trigger fires:
+Build the prompt text. Include each flagged reason — e.g. "2 large commits (feat: add app — 33 files; chore: setup — 12 files)" or "uncommitted changes not yet in any commit". Then:
 <mandatory>Call AskUserQuestion with:
-- Question: "Found [N] commit(s) that may break git bisect: [list of flagged messages]. Would you like to reorganize into clean, atomic commits? This will rewind the branch back to [BASE_BRANCH] (a soft reset) — all your changes stay in your files, nothing is lost — then recommit them in logical groups."
+- Question: "Found issues that affect commit quality: [list reasons]. Would you like to reorganize into clean, atomic commits? This will rewind all branch commits back to [BASE_BRANCH] (a soft reset) — all your changes stay in your files, nothing is lost — then you confirm the groupings before committing."
 - Options:
   - "Yes — help me reorganize into clean commits" (Recommended)
   - "Continue as-is"
@@ -752,42 +752,40 @@ If flagged commits are found:
 
 If yes:
 
-1. Run `git reset --soft $(git merge-base HEAD BASE_BRANCH)` to put all branch commits back
-   back into your files, resetting exactly to the divergence point (not BASE_BRANCH tip).
+1. Run `git reset --soft $(git merge-base HEAD BASE_BRANCH)` to put all branch commits back into your files, resetting exactly to the divergence point (not BASE_BRANCH tip). Any previously uncommitted changes remain as unstaged files in `git status --short` alongside the soft-reset files.
 
-2. Run `git status --short` to get the full list of changed files.
+2. Run `git status --short` to get the complete list of all changed files (committed + previously uncommitted).
 
-3. If `[excluded-files]` is non-empty: remove those paths from the file list before
-   proposing any groupings. Tell the user: "These files had uncommitted changes before
-   the regroup and are excluded from all commit groups — they remain untouched:
-   [list of excluded files]."
+3. Propose **concern-based** groupings. Each commit must represent one coherent logical unit — one module, one feature area, one distinct concern. **Do not group by file type** (putting all `.ts` files in one commit and all `.test.ts` in another is not atomic). Instead:
 
-4. Propose logical groupings from the remaining files based on file types and paths. Each
-   group must leave the codebase in a working state on its own. Good groupings:
-   - Production code changes by feature area (one commit per distinct concern)
-   - Test files committed with the production code they test, or separately as `test:`
-   - Config/tooling changes as `chore:`
-   - Documentation and artifact changes as `docs:`
+   - **Tests travel with the production code they test.** `auth.js` and `auth.test.js` belong in the same commit. Splitting them means you can check out a commit where the feature exists but the tests don't — that's not a working state.
+   - **Group by module or responsibility boundary**, not by file extension. Examples of good atomic groups:
+     - `feat: add OAuth2 auth module` → `src/auth.js`, `src/auth.test.js`
+     - `feat: add Spotify API client` → `src/spotifyApi.js`, `src/spotifyApi.test.js`
+     - `feat: add TopTracks component` → `src/components/TopTracks.jsx`, `src/components/TopTracks.test.jsx`
+     - `chore: configure Vite with mkcert` → `vite.config.js`, `package.json`, `.env.example`
+     - `docs: add README` → `README.md`
+   - **If a single group would exceed ~10 files**, look for a sub-grouping. A component and its test is fine; an entire application in one commit is not.
+   - Config/tooling changes (build config, package.json, CI files) go in a separate `chore:` commit.
+   - `.vibe-check/` artifact changes go in a separate `docs:` commit.
 
 <mandatory>Call AskUserQuestion with:
-- Question: "Here's how I'd group the changes for clean, bisectable commits: [list each group: proposed commit message + files]. Does this look right?"
+- Question: "Here's how I'd group the changes for clean, atomic commits:\n[for each group — number, proposed commit message, file list]\nDoes this look right?"
 - Options:
   - "Looks good — proceed"
-  - "Change group [N] — describe in Other"
+  - "Change a group — describe in Other"
   - "Add all changes to one commit"
   - "Cancel regroup — continue as-is"
 </mandatory>
 
 If "Cancel regroup — continue as-is": proceed to Phase 4 without regrouping.
 
-5. For each confirmed group in order:
+4. For each confirmed group in order:
    `git add [files in group] && git commit -m "[message]"`
    PowerShell: run as two separate commands.
    Use conventional commit prefixes: `feat:`, `fix:`, `test:`, `chore:`, `docs:`, `refactor:`.
 
-<gate>Do not proceed to Phase 4 until all groups are committed and `git status --short`
-shows no files other than those in `[excluded-files]` (excluded working-tree files are
-expected to remain).</gate>
+<gate>Do not proceed to Phase 4 until all groups are committed and `git status --short` is empty (all changes committed).</gate>
 
 If the state file exists: use the Edit tool to update the `**Last phase:**` line to `**Last phase:** 3.5`.
 
@@ -914,20 +912,63 @@ If `origin` is not listed:
 </mandatory>
 
 If "Create a new GitHub repository for me":
+Run `git rev-parse --show-toplevel` and take the last path segment as the proposed repo name (e.g. if the path is `/home/user/my-project`, the proposed name is `my-project`).
+
+**Name selection loop** — repeat until a valid unused name is confirmed:
+<mandatory>Call AskUserQuestion with:
+- Question: "What should the GitHub repository be named? (Default is your project folder name: [proposed-name])"
+- Options:
+  - "[proposed-name] (Recommended)"
+  - "Enter a different name above ↑"
+</mandatory>
+Use the confirmed or entered name as REPO_NAME.
+
+Run `gh repo view REPO_NAME` to check if a repo with this name already exists on the account.
+- If it **exists**: tell the user: "A GitHub repository named `[REPO_NAME]` already exists on your account. To push to an existing repository, choose 'I have a repository — let me enter the URL' from the previous step. Please choose a different name." Loop back to the name question above.
+- If it **does not exist** (command exits non-zero / "Could not resolve"): proceed.
+
 <mandatory>Call AskUserQuestion with:
 - Question: "What visibility should the new GitHub repository have?"
 - Options:
   - "Private"
   - "Public"
 </mandatory>
-Run `gh repo create --source=. --[private|public] --push`. If it fails, report the error and stop.
-If it succeeds: check whether BASE_BRANCH exists on the remote:
+Run `gh repo create REPO_NAME --source=. --[private|public]` (without `--push` — we control the push order).
+
+If it **fails**:
+- Read the error message carefully.
+- If the error mentions **authentication** (not logged in, token expired): run `gh auth login` interactively to re-authenticate, then retry the `gh repo create` command once.
+- If the error mentions **name already taken** (despite the earlier check): tell the user the name is unavailable, loop back to the name selection question above.
+- If the error mentions **permissions** or **organization policy**: explain the error in plain language and ask:
+  <mandatory>Call AskUserQuestion with:
+  - Question: "Creating the repository failed: [error summary]. How would you like to proceed?"
+  - Options:
+    - "Try a different name"
+    - "I have an existing repository — let me enter the URL"
+    - "Cancel — I will set up the remote manually"
+  </mandatory>
+  Handle each option: loop back to the name question, jump to the "I have a repository" path, or stop with instructions to run `git remote add origin [URL]` and re-run `/vc-ship`.
+- Any other error: show the raw error, then ask the same three-option question above.
+
+If it **succeeds**, push BASE_BRANCH first so it becomes the GitHub default branch:
 ```bash
-git branch -r | grep origin/BASE_BRANCH
+git push origin BASE_BRANCH
 ```
-If BASE_BRANCH is not on the remote: run `git push origin BASE_BRANCH` before proceeding.
-The remote is now configured and the branch has been pushed — skip the `git push` command
-below and proceed to "Check for an existing PR".
+- If the push **succeeds**: proceed to step 2.
+- If the push fails with **"already exists"** or **"up to date"**: BASE_BRANCH is already on the remote — note this and proceed to step 2.
+- If the push fails for **any other reason**: read the error, attempt to fix the underlying cause (e.g. run `gh auth status` if it looks like an auth issue, retry once after fixing). If it still fails after one fix attempt, ask:
+  <mandatory>Call AskUserQuestion with:
+  - Question: "Could not push [BASE_BRANCH] to the new repository: [error summary]. How would you like to proceed?"
+  - Options:
+    - "Try pushing again"
+    - "Cancel — I will push manually"
+  </mandatory>
+  If "Try pushing again": retry `git push origin BASE_BRANCH` once more. If it still fails, tell the user to run `git push origin BASE_BRANCH` manually and re-run `/vc-ship`.
+  If Cancel: tell the user to run `git push origin BASE_BRANCH` then `git push -u origin HEAD` manually.
+
+2. Set BASE_BRANCH explicitly as the default: `gh repo edit --default-branch BASE_BRANCH`. If this fails, warn the user: "Repository created but could not set `[BASE_BRANCH]` as default — change the default branch in GitHub repository settings before merging any PRs."
+3. Tell the user: "Created `[REPO_NAME]` — `[BASE_BRANCH]` is set as the default branch."
+The remote is now configured. Proceed normally to the `git push -u origin HEAD` below to push the feature branch.
 
 If "I have a repository — let me enter the URL":
 <mandatory>Call AskUserQuestion with:

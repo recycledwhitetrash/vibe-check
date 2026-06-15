@@ -1,6 +1,6 @@
 # /vc-onboard — Codebase Onboarding
 
-<!-- version: 2026-06-14 -->
+<!-- version: 2026-06-14.1 -->
 
 Run `/vc-onboard` once to embed the vibe-check suite into an existing project. It scans
 your codebase, breaks it into logical feature chunks, scaffolds git if needed, optionally
@@ -21,7 +21,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-onboard` version matches `2026-06-14`**: proceed silently.
+**Fetch succeeded — `vc-onboard` version matches `2026-06-14.1`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
