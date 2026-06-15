@@ -46,22 +46,23 @@ install again. **Stop here.**
 
 ## Step 2 — Install skill files
 
-<mandatory>Use ONLY the WebFetch tool and Write tool for this step. Do not use Bash commands, the Read tool on local paths, the gh CLI, curl, wget, or any other method. WebFetch returns the full raw content of the URL — it does not summarise. Use the exact fetch URLs from the table below — do not construct, guess, or shorten any URL. The skill files live in `.claude/commands/` in the GitHub repository; all fetch URLs in the table include this path. Always fetch from GitHub, never from local disk.</mandatory>
+Use the Bash tool to run these curl commands exactly as written. Do not substitute WebFetch, gh, or any other method — curl downloads the raw file bytes without any content processing:
 
-Use the WebFetch tool to fetch each URL below, then use the Write tool to save the content
-to the corresponding path under `PROJECT_ROOT`. Fetch all 6 before writing any — if any
-fetch fails, tell the user which file failed and stop without writing anything.
+```bash
+mkdir -p [PROJECT_ROOT]/.claude/commands
+curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-bootstrap.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-bootstrap.md"
+curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-plan.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-plan.md"
+curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-audit.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-audit.md"
+curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-ship.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md"
+curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-retro.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-retro.md"
+curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-onboard.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-onboard.md"
+```
 
-| Write to | Fetch from |
-|---|---|
-| `[PROJECT_ROOT]/.claude/commands/vc-bootstrap.md` | `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-bootstrap.md` |
-| `[PROJECT_ROOT]/.claude/commands/vc-plan.md` | `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-plan.md` |
-| `[PROJECT_ROOT]/.claude/commands/vc-audit.md` | `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-audit.md` |
-| `[PROJECT_ROOT]/.claude/commands/vc-ship.md` | `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md` |
-| `[PROJECT_ROOT]/.claude/commands/vc-retro.md` | `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-retro.md` |
-| `[PROJECT_ROOT]/.claude/commands/vc-onboard.md` | `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-onboard.md` |
+If any command fails (non-zero exit code): tell the user which file failed and stop.
 
-After all 6 are written, tell the user: "✓ 6 skill files installed."
+If curl is not found: tell the user "curl is not available on this machine. Please download these 6 files manually from GitHub and place them in `.claude/commands/` in your project:" then list all 6 fetch URLs above.
+
+After all 6 succeed, tell the user: "✓ 6 skill files installed."
 
 ---
 
