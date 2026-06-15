@@ -1,6 +1,6 @@
 # /vc-plan
 
-<!-- version: 2026-06-10 -->
+<!-- version: 2026-06-14 -->
 
 The project coordinator for your entire codebase. Run it before writing code to plan a
 feature, typically from your main branch to pick up the next thing to build, or when you're not sure
@@ -29,7 +29,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-plan` version matches `2026-06-10`**: proceed silently.
+**Fetch succeeded — `vc-plan` version matches `2026-06-14`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:

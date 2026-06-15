@@ -1,6 +1,6 @@
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-10 -->
+<!-- version: 2026-06-14 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -27,7 +27,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-audit` version matches `2026-06-10`**: proceed silently.
+**Fetch succeeded — `vc-audit` version matches `2026-06-14`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:

@@ -1,6 +1,6 @@
 # /vc-bootstrap — Machine Setup
 
-<!-- version: 2026-06-10 -->
+<!-- version: 2026-06-14 -->
 
 Setup for the vibe-check suite. Configures git, installs and authenticates GitHub CLI,
 installs gitleaks, and generates a security-baseline `.gitignore` for your project. Orients
@@ -17,7 +17,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-bootstrap` version matches `2026-06-10`**: proceed silently.
+**Fetch succeeded — `vc-bootstrap` version matches `2026-06-14`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -39,7 +39,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetch succeeded — fetched version is older than `2026-06-10`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetch succeeded — fetched version is older than `2026-06-14`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 

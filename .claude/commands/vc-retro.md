@@ -1,6 +1,6 @@
 # /vc-retro
 
-<!-- version: 2026-06-10 -->
+<!-- version: 2026-06-14 -->
 
 A time-based retrospective skill that reviews your git history for the period since your
 last retro (up to 31 days). Quantifies what shipped, identifies hotspot files, checks
@@ -23,7 +23,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-retro` version matches `2026-06-10`**: proceed silently.
+**Fetch succeeded — `vc-retro` version matches `2026-06-14`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:

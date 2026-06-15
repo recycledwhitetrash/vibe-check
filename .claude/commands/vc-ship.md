@@ -1,6 +1,6 @@
 # /vc-ship — Ship Flow
 
-<!-- version: 2026-06-10 -->
+<!-- version: 2026-06-14 -->
 
 Guides you through a safe push-and-PR flow for a feature branch. Before pushing, runs a
 gitleaks secret scan (hard stop on any detected secrets), a lint check, and test coverage
@@ -25,7 +25,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-ship` version matches `2026-06-10`**: proceed silently.
+**Fetch succeeded — `vc-ship` version matches `2026-06-14`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
