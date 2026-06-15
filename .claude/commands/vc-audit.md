@@ -17,6 +17,8 @@ to avoid context exhaustion, automatic resume after compaction, and FILE_READ_MO
 used after `/vc-onboard`, automatically scans designated chunk files directly on branches
 with no diff.
 
+Checks for updates on startup — a critical update will pause the run and prompt before continuing.
+
 ---
 
 ## Version check
@@ -50,10 +52,11 @@ If Continue: proceed to Phase 0.
 </output-handlers>
 
 **Auto-update:**
-1. Run `git rev-parse --show-toplevel` to find the project root.
-2. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-audit.md`.
-3. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-audit.md`. Tell the user "Updated to the latest version. Please re-run /vc-audit." Do not continue.
-4. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
+1. Run `git --version` to check whether git is installed. If git is not installed, skip the auto-update entirely and proceed to Phase 0 — git will be installed there first.
+2. Run `git rev-parse --show-toplevel` to find the project root.
+3. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-audit.md`.
+4. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-audit.md`. Tell the user "Updated to the latest version. Please re-run /vc-audit." Do not continue.
+5. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
 
@@ -110,7 +113,15 @@ git symbolic-ref refs/remotes/origin/HEAD
 <output-handlers>
 
 - **Multiple default branches detected** (e.g. both `main` and `master` exist in the refs list): call AskUserQuestion — "Multiple base branches were found: [list them]. Which one will this branch be merged into?" — list each detected default branch as its own option. Use the user's answer as BASE_BRANCH in all subsequent commands.
-- **No `main`, `master`, or `develop` in the refs list**: call AskUserQuestion — "What is the name of the base branch this branch will be merged into? (e.g. main, master, develop, staging)" — use the user's answer as BASE_BRANCH in all subsequent commands.
+- **No `main`, `master`, or `develop` in the refs list**:
+  <mandatory>Call AskUserQuestion with:
+  - Question: "What is the name of the base branch this branch will be merged into?"
+  - Options:
+    - "main"
+    - "master"
+    - "develop"
+  </mandatory>
+  (Use Other to type a custom branch name.) Use the user's answer as BASE_BRANCH in all subsequent commands.
 - **Current branch name matches a default branch name**: call AskUserQuestion — "You're on `[branch]`, which is the base branch. The audit is designed for feature branches. Would you like to audit recent commits on this branch, or switch to a different branch first?"
   - Options: "Audit recent commits on this branch" / "Switch to a different branch first — I'll come back"
   - If "Switch to a different branch first": stop and wait.
@@ -131,7 +142,6 @@ git symbolic-ref refs/remotes/origin/HEAD
 
 Now run the analysis commands to understand what the branch changes:
 
-```bash
 First, identify any tracked files that are gitignored (e.g., dependencies committed before `.gitignore` was added):
 
 ```bash
@@ -1311,6 +1321,7 @@ Compute the artifact path from the branch name:
      - Question: "Multiple paths were provided. What should this scoped audit be called? This becomes part of the artifact filename. Select the suggestion or type a custom name in the Other box."
      - Options:
        - "[suggested name based on context]" (Recommended)
+       - "Enter a custom name above ↑"
      </mandatory>
      Use the chosen or typed name as the path slug (apply the same slugification rule above).
    - Artifact path: `.vibe-check/vc-audit/[branch-slug]--[path-slug].md`
@@ -1323,11 +1334,19 @@ to derive the current pass number, all existing finding numbers, and clean pass 
 Never reconstruct these from memory — context grows and degrades across passes; the file
 does not.
 
-**If the artifact exists:** Read it using the Read tool. Note the current pass number, all
-open findings, all dismissed items, all deferred items. Note the `**Subagents:**` field from
-the artifact header — this is the adversarial subagent setting for this audit. Do not ask the
-user about subagents again. Continue from where the last pass left off — re-walk every surface
-from scratch, but use prior finding numbers for known issues.
+**If the artifact exists:** Read it using the Read tool. Check the `**Status:**` field in the artifact header.
+
+**If Status is `STOPPED`:**
+<mandatory>Call AskUserQuestion with:
+- Question: "This audit was previously stopped. Would you like to continue from where you left off, or start a new audit for this branch?"
+- Options:
+  - "Continue from where I stopped"
+  - "Start a new audit (replaces the existing artifact)"
+</mandatory>
+If "Start a new audit": use the Write tool to overwrite the existing artifact with a fresh header (follow the "artifact does not exist" path below — ask about subagents, then create). Do not continue until the new artifact exists on disk.
+If "Continue from where I stopped": proceed as if Status were IN PROGRESS.
+
+**If Status is `IN PROGRESS` (or "Continue from where I stopped" was chosen):** Note the current pass number, all open findings, all dismissed items, all deferred items. Note the `**Subagents:**` field from the artifact header — this is the adversarial subagent setting for this audit. Do not ask the user about subagents again. Continue from where the last pass left off — re-walk every surface from scratch, but use prior finding numbers for known issues.
 
 **If the artifact does not exist:** Before creating it, ask about subagent configuration:
 
@@ -1416,7 +1435,7 @@ _none yet_
 <recovery>
 
 **If this is a resumed session (after context compaction or restart):**
-0. Determine the artifact path: run `git rev-parse --abbrev-ref HEAD` to get the current branch name, then slugify it (lowercase, replace non-alphanumeric characters with `-`, collapse consecutive hyphens to one, strip leading/trailing hyphens). If $ARGUMENTS is set (scoped audit), apply the same slugification to the scope path and append `--[path-slug]` to form `[branch-slug]--[path-slug].md`. Otherwise the path is `[branch-slug].md`. Read the artifact at `.vibe-check/vc-audit/[computed-path]` to restore full state.
+0. Determine the artifact path: run `git branch --show-current` to get the current branch name. If it returns empty (detached HEAD state): run `git branch` to list all local branches. Call AskUserQuestion — "The repo is in detached HEAD state — no branch is currently checked out. Which branch were you auditing?" — list each local branch as its own option (use Other to type a branch name manually). Use the confirmed branch name. Slugify the branch name (lowercase, replace non-alphanumeric characters with `-`, collapse consecutive hyphens to one, strip leading/trailing hyphens). If $ARGUMENTS is set (scoped audit), apply the same slugification to the scope path and append `--[path-slug]` to form `[branch-slug]--[path-slug].md`. Otherwise the path is `[branch-slug].md`. Read the artifact at `.vibe-check/vc-audit/[computed-path]` to restore full state.
 1. Determine BASE_BRANCH using this priority order — stop at the first that succeeds:
    - **Audit artifact**: read `**Base branch:**` from the artifact header. Use that value.
    - **Roadmap**: use the Read tool to check `.vibe-check/vc-plan/roadmap.md`. If it exists and has a `**Base branch:**` line, use that value.
@@ -1495,7 +1514,10 @@ are the audit surface, not a diff.
   this by assigning 5–6 to unquoted findings.
 - **Record each finding in the artifact immediately when discovered.** Do not accumulate
   findings in memory and batch them for Phase 5. Write each F-NNN to the artifact as you
-  find it, using the Write or Edit tool.
+  find it, using the Write or Edit tool. After each write, use the Read tool to verify the
+  finding appears in the artifact. If it does not, re-attempt once. If it still fails, tell
+  the user and provide the exact finding text to add manually: "Could not write [F-NNN] to
+  the artifact — please add this line to the Open section manually: [full F-NNN entry text]."
 - **If a finding predates this branch** (the issue exists in code not changed by this diff),
   add `[pre-existing]` inline to the finding entry. Pre-existing issues are still surfaced
   and still require action.
@@ -1668,7 +1690,7 @@ Process the subagent output and update the artifact:
 ## Phase 6 — Fix and loop
 
 After the pass report:
-1. For each **Acting on** item (`F-NNN`): apply the fix directly to the source file using the Edit tool. Reference the finding number in an inline code comment if appropriate (e.g., `// fix [F-003]: added null check`). The finding number will be included in the commit message by vc-ship when the branch ships.
+1. For each **Acting on** item (`F-NNN`): apply the fix directly to the source file using the Edit tool. Reference the finding number in an inline code comment if appropriate (e.g., `// fix [F-003]: added null check`). The finding number will be included in the commit message by vc-ship when the branch ships. After the Edit, use the Read tool to verify the fix appears in the source file. If it does not, re-attempt once. If it still fails, tell the user: "Could not apply the fix for [F-NNN] — please apply this change manually: [exact old and new text]." The finding remains in Acting on and will reappear as open on the next pass until the fix is confirmed applied.
 2. For each **Want to skip** item, run the decision protocol below. One AskUserQuestion
    per finding, in order. Do not group them — the question window is small and does not
    render markdown. <mandatory>Call the AskUserQuestion tool directly. Prose output describing the options does not satisfy this requirement.</mandatory>
@@ -1749,7 +1771,7 @@ After the pass report:
    - **Pause** — Stop here; resume later by running /vc-audit again
    - **Stop** — Done auditing; I will review and decide on convergence myself
 
-   **If the user chooses Stop**: update the artifact header `**Status:** STOPPED` using the Edit tool, then stop. A STOPPED audit will not auto-resume; the user must re-run /vc-audit to start a new session.
+   **If the user chooses Stop**: update the artifact header `**Status:** STOPPED` using the Edit tool. After the Edit, use the Read tool to verify `**Status:** STOPPED` appears in the artifact header. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the artifact status — please change the `**Status:**` line to `**Status:** STOPPED` manually." Then stop. A STOPPED audit will not auto-resume; the user must re-run /vc-audit to start a new session.
    **If the user chooses Pause**: stop immediately without modifying the artifact. Phase 3 detects the IN PROGRESS artifact on the next run and resumes from where this pass left off.
 
    **Blocked convergence checkpoint (2 clean passes but open findings remain, plain text):**
@@ -1812,6 +1834,8 @@ After the pass report:
    **Passes completed:** [N — must match the counter already in the header]
    **Findings:** [N] open | [N] resolved | [N] deferred | [N] dismissed
    ```
+
+   After the Edit, use the Read tool to verify `**Status:** CONVERGED` appears in the artifact header. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the artifact status — please change the `**Status:**` line to `**Status:** CONVERGED` and update the other header fields manually."
 
    **If the user chooses Pause**, stop immediately — do not run another pass. Phase 3 will detect the existing artifact on the next run and resume from where this pass left off.
 
