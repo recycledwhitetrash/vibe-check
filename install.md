@@ -50,6 +50,8 @@ install again. **Stop here.**
 
 ## Step 2 — Install skill files
 
+<mandatory>Use ONLY the WebFetch tool and Write tool for this step. Do not use Bash commands, the Read tool on local paths, the gh CLI, curl, wget, or any other method. The skill files live in `.claude/commands/` in the GitHub repository — the fetch URLs below include this path. Always fetch from GitHub, never from local disk.</mandatory>
+
 Use the WebFetch tool to fetch each URL below, then use the Write tool to save the content
 to the corresponding path under `PROJECT_ROOT`. Fetch all 6 before writing any — if any
 fetch fails, tell the user which file failed and stop without writing anything.
