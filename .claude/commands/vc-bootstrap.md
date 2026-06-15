@@ -1,12 +1,13 @@
 # /vc-bootstrap — Machine Setup
 
-<!-- version: 2026-06-10 -->
+<!-- version: 2026-06-14 -->
 
 Setup for the vibe-check suite. Configures git, installs and authenticates GitHub CLI,
 installs gitleaks, and generates a security-baseline `.gitignore` for your project. Orients
 you to the full skill suite and routes you to the right starting point. Run this in each
 new project — machine-level steps (git config, GitHub CLI auth, gitleaks) skip automatically
 if already done, but the `.gitignore` baseline and project routing are set up fresh each time.
+Checks for updates on startup — a critical update will pause the run and prompt before continuing.
 
 ---
 
@@ -16,7 +17,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-bootstrap` version matches `2026-06-10`**: proceed silently.
+**Fetch succeeded — `vc-bootstrap` version matches `2026-06-14`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -38,13 +39,16 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
+**Fetch succeeded — fetched version is older than `2026-06-14`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+
 </output-handlers>
 
 **Auto-update:**
-1. Run `git rev-parse --show-toplevel` to find the project root.
-2. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-bootstrap.md`.
-3. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-bootstrap.md`. Tell the user "Updated to the latest version. Please re-run /vc-bootstrap." Do not continue.
-4. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
+1. Run `git --version` to check whether git is installed. If git is not installed, skip the auto-update entirely and proceed to Phase 0 — git will be installed there first.
+2. Run `git rev-parse --show-toplevel` to find the project root.
+3. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-bootstrap.md`.
+4. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-bootstrap.md`. Tell the user "Updated to the latest version. Please re-run /vc-bootstrap." Do not continue.
+5. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
 
@@ -61,11 +65,15 @@ gitleaks version
 git config --global user.name
 git config --global user.email
 gh auth status
+git rev-parse --show-toplevel 2>&1
 ```
 
-<gate>Do not proceed until you have all six outputs.</gate>
+<gate>Do not proceed until you have all seven outputs.</gate>
 
-Check whether `.vibe-check/vc-bootstrap.md` exists using the Read tool.
+If `git rev-parse --show-toplevel` succeeded: use that path as PROJECT_ROOT for all file operations in this skill.
+If it failed (git not installed or not in a git repo): use `.` as PROJECT_ROOT — files will be written relative to the current working directory.
+
+Check whether `PROJECT_ROOT/.vibe-check/vc-bootstrap.md` exists using the Read tool.
 
 Build a status table from the results and present it to the user:
 
@@ -133,27 +141,31 @@ If any tool still fails after install: tell the user "Installation of [tool] fai
 
 **Linux/WSL shell:**
 
-Attempt to install all missing tools in one command — this works automatically if the sudo password is blank (common on WSL):
+<mandatory>Call AskUserQuestion with:
+- Question: "The following tools are missing and vibe-check will not work without them: [list each missing tool]. Install them now?"
+- Options:
+  - "Yes — install them now"
+  - "I'll install them myself"
+</mandatory>
 
+If "I'll install them myself": show the install commands for each missing tool, then tell the user: "Once you've installed them, re-run `/vc-bootstrap` to complete setup." Stop here.
+- git: `sudo apt install -y git`
+- gh: `curl -sS https://webi.sh/gh | sh`
+- gitleaks: `curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/main/scripts/install.sh | sh -s -- -b /usr/local/bin`
+
+If "Yes — install them now": run the appropriate command for each missing tool via the Bash tool:
+- git missing: `sudo apt install -y git`
+- gh missing: `curl -sS https://webi.sh/gh | sh`
+- gitleaks missing: `curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/main/scripts/install.sh | sh -s -- -b /usr/local/bin`
+
+After all installs complete, re-run the version checks for the tools that were just installed:
 ```bash
-sudo apt install -y [list each missing package: git gh gitleaks]
+git --version
+gh --version
+gitleaks version
 ```
 
-If the command succeeds (exit 0): re-run the version checks for the installed tools and continue to Phase 1.
-
-If the command fails or requires interactive input: tell the user to run these in their terminal:
-
-- git missing: `sudo apt install git`
-- gh missing: `sudo apt install gh` (if that fails: `curl -sS https://webi.sh/gh | sh`)
-- gitleaks missing: `sudo apt install gitleaks` (if that fails: download the binary from https://github.com/gitleaks/gitleaks/releases — pick the release matching your architecture, extract it, and move it to `/usr/local/bin/`)
-
-Then:
-<mandatory>Call AskUserQuestion with:
-- Question: "Run the install commands above in your terminal, then come back here."
-- Options:
-  - "Done — all tools are installed"
-</mandatory>
-After they confirm: re-run `git --version`, `gh --version`, and `gitleaks version` to verify. If any still fail, tell the user which tool failed and show the error. Stop here — vibe-check will not work without them.
+If any tool still fails after install: tell the user "Installation of [tool] failed — [error output]. You may need to install it manually. Once fixed, re-run `/vc-bootstrap` to complete setup." Stop here.
 
 </phase>
 
@@ -176,6 +188,7 @@ Check each config value and only prompt for what is missing.
 <mandatory>Call AskUserQuestion with:
 - Question: "What name should appear on your git commits? This is public on GitHub. Type it in the 'Other' field below — for example: Jane Smith"
 - Options:
+  - "Enter my name above ↑"
   - "Skip — I'll set this up later"
 </mandatory>
 If a name was entered in Other: run `git config --global user.name "[name]"`
@@ -185,6 +198,7 @@ If Skip: note user.name as "not set".
 <mandatory>Call AskUserQuestion with:
 - Question: "What email address should appear on your git commits? Use the same email as your GitHub account. Type it in the 'Other' field below — for example: jane@example.com"
 - Options:
+  - "Enter my email above ↑"
   - "Skip — I'll set this up later"
 </mandatory>
 If an email was entered in Other: run `git config --global user.email "[email]"`
@@ -201,6 +215,7 @@ If the output is empty (not set), run:
 ```bash
 git config --global init.defaultBranch main
 ```
+Tell the user: "Set your default branch name to 'main' — this is the name git gives the first branch in any new project you create."
 
 </phase>
 
@@ -436,6 +451,8 @@ Tell the user in plain language what each skill does and when to use it:
   codebase into feature areas, scaffolds git if needed, optionally sets up a GitHub remote,
   and writes plan stubs for each area to your main branch, so you can pick features one at a time with `/vc-plan`.
 
+Re-run `/vc-bootstrap` on any new machine you code from — git config, GitHub CLI auth, and gitleaks are machine-level and need to be set up once per machine. The `.gitignore` and project routing steps run every time.
+
 ### Write artifact
 
 Get the authenticated GitHub username:
@@ -461,7 +478,7 @@ Use the Write tool to create `.vibe-check/vc-bootstrap.md`:
 |------|-------|
 | git user.name | [name or "not set — run /vc-bootstrap to configure"] |
 | git user.email | [email or "not set — run /vc-bootstrap to configure"] |
-| git defaultBranch | main |
+| git defaultBranch | [value from `git config --global init.defaultBranch` as read in Phase 1] |
 | GitHub CLI | ✓ authenticated as @[username] |
 | gitleaks | ✓ [version] |
 ```
@@ -490,17 +507,29 @@ git log --oneline -1
   - "Yes — run git init"
   - "No — I'll set it up myself"
 </mandatory>
-If Yes: run `git init`. Then tell the user:
+If Yes: run `git init`. Then run:
+```bash
+git add .gitignore .vibe-check/vc-bootstrap.md
+git commit -m "chore: bootstrap vibe-check setup"
+```
+Then tell the user:
 > You're all set. Run **/vc-plan** to start your first feature — it will create a branch,
 > help you think through what you're building, and track it on a roadmap. When you're
-> ready to push to GitHub, run **/vc-ship** — it will create the remote repo and push
-> for you.
+> ready to upload your code to GitHub, run **/vc-ship** — it will create the GitHub
+> repository and send your commits there for you.
 If No: tell the user to run `git init` in their terminal when ready, then run `/vc-plan`.
 
-**No output, empty output, or a `fatal: ... does not have any commits yet` error** (fresh project — treat all three as equivalent): Tell the user:
+**No output, empty output, or a `fatal: ... does not have any commits yet` error** (fresh project — treat all three as equivalent): Run:
+```bash
+git add .gitignore .vibe-check/vc-bootstrap.md
+git commit -m "chore: bootstrap vibe-check setup"
+```
+Then tell the user:
 
 > You're all set. Run **/vc-plan** to start your first feature — it will create a branch,
-> help you think through what you're building, and track it on a roadmap.
+> help you think through what you're building, and track it on a roadmap. When you're
+> ready to upload your code to GitHub, run **/vc-ship** — it will create the GitHub
+> repository and send your commits there for you.
 
 **Has commits** (existing project): Tell the user:
 

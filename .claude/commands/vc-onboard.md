@@ -1,6 +1,6 @@
 # /vc-onboard — Codebase Onboarding
 
-<!-- version: 2026-06-10 -->
+<!-- version: 2026-06-14 -->
 
 Run `/vc-onboard` once to embed the vibe-check suite into an existing project. It scans
 your codebase, breaks it into logical feature chunks, scaffolds git if needed, optionally
@@ -11,6 +11,8 @@ interrupted mid-run.
 
 Run this on a project that has code but was started before the suite was installed.
 
+Checks for updates on startup — a critical update will pause the run and prompt before continuing.
+
 ---
 
 ## Version check
@@ -19,7 +21,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-onboard` version matches `2026-06-10`**: proceed silently.
+**Fetch succeeded — `vc-onboard` version matches `2026-06-14`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -44,10 +46,11 @@ If Continue: proceed to Phase 0.
 </output-handlers>
 
 **Auto-update:**
-1. Run `git rev-parse --show-toplevel` to find the project root.
-2. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-onboard.md`.
-3. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-onboard.md`. Tell the user "Updated to the latest version. Please re-run /vc-onboard." Do not continue.
-4. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
+1. Run `git --version` to check whether git is installed. If git is not installed, skip the auto-update entirely and proceed to Phase 0 — git will be installed there first.
+2. Run `git rev-parse --show-toplevel` to find the project root.
+3. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-onboard.md`.
+4. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-onboard.md`. Tell the user "Updated to the latest version. Please re-run /vc-onboard." Do not continue.
+5. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
 
@@ -102,11 +105,14 @@ Also use the Read tool to attempt to read `.vibe-check/vc-onboard.md`.
 **`.vibe-check/vc-onboard.md` exists with `**Status:** in progress`**:
 This is a compaction resume. Read the full onboard artifact. Tell the user:
 "Found an in-progress onboard session. Resuming from where it left off."
-Check the `**Git:**` and `**Remote:**` fields in the artifact:
+First, check the `**Codebase map:**` field:
+- If `**Codebase map:** [pending]`: Phase 1 did not complete. Tell the user: "The previous session ended during Phase 1 file discovery. Re-running Phase 1 now." Re-run Phase 1 from the beginning (including the initial stub write — it will be overwritten by Phase 2's full artifact write as normal).
+
+Then check the `**Git:**` and `**Remote:**` fields in the artifact:
 - If `**Git:** pending`: Phase 3 git scaffold did not complete. Tell the user: "The previous session ended before git was initialized. Re-running Phase 3 now." Run Phase 3 before continuing to Phase 4.
 - If `**Git:** initialized` but `**Remote:** pending`: Phase 3 remote setup did not complete. Tell the user: "The previous session ended before remote setup completed." Re-run just the Remote setup section of Phase 3, then continue to Phase 4.
 - If `**Git:**` is `initialized` and `**Remote:**` is anything other than `pending`: proceed directly to Phase 4.
-Find the first chunk in the Codebase map where Plan stub is `in progress` or `pending` and begin there. Do not re-run Phases 1–2.
+Find the first chunk in the Codebase map where Plan stub is `in progress` or `pending` and begin there. Do not re-run Phases 1–2. If no chunk is `in progress` or `pending` (all chunks were processed before the session ended), skip the per-chunk loop and proceed directly to the Commit step in Phase 4.
 
 **`.vibe-check/vc-onboard.md` exists with `**Status:** complete`**:
 <mandatory>Call AskUserQuestion with:
@@ -178,6 +184,29 @@ Before using the Read tool on any file, check its name against this list.
 <phase id="1" name="survey">
 
 ## Phase 1 — Codebase survey
+
+Before running any file discovery commands, write an initial stub to preserve Phase 0 state in case of compaction during Phase 1:
+
+Use the Write tool to create `.vibe-check/vc-onboard.md`:
+```
+# vc-onboard
+
+**Date:** [today's date]
+**Status:** in progress
+**Git:** pending
+**Remote:** pending
+
+## Project summary
+
+[pending]
+
+---
+
+## Codebase map
+
+[pending]
+```
+(Phase 2 will overwrite this stub with the full artifact once decomposition is complete.)
 
 ### File discovery
 
@@ -276,7 +305,8 @@ alone cannot answer. Always include the first question below, then choose 1–2 
 questions based on what you found.
 
 <mandatory>Call AskUserQuestion with:
-- Question 1 (always include): "What is the main purpose of this application? Who uses it and what do they do with it?"
+- Question 1 (always include): "What is the main purpose of this application? Who uses it and what do they do with it? (Type your answer in the Other box below and press Enter.)"
+  - Options: "I'll describe it below ↑" / "See README — it explains the purpose"
 - Question 2 (always include): "What type of project is this? Your answer sets the right planning depth and compliance requirements."
   - Options: "Internal tooling for me personally" / "Internal tooling for multiple users at my company" / "Internal tooling that generates client-facing artifacts" / "Client-facing product"
 - Choose 0–1 additional question tailored to what was found. Examples:
@@ -440,6 +470,9 @@ If on `master` or another name and the user prefers `main`, run `git checkout -b
 Tell the user: "Git is initialized but has no commits — committing the existing codebase as the baseline."
 Proceed to the **Commit step** below.
 
+**`git rev-parse` succeeded AND `git log` has commits AND `git branch --show-current` returned empty** (detached HEAD state):
+Tell the user: "You are in detached HEAD state — no branch is currently checked out. This usually means you checked out a specific commit rather than a branch. Run `git checkout [DEFAULT_BRANCH]` (or your main branch name) to return to your branch, then re-run /vc-onboard." Stop here.
+
 **`git rev-parse` succeeded AND `git log` has commits AND current branch is NOT DEFAULT_BRANCH** (or DEFAULT_BRANCH is unknown and current branch is not in main/master/develop/trunk/release/production):
 Tell the user: "You appear to be on a feature branch ([current-branch]). Onboarding writes plan stubs to the default branch."
 <mandatory>Call AskUserQuestion with:
@@ -509,7 +542,7 @@ Then stage and commit:
 
 ```bash
 git add .
-git reset HEAD .vibe-check/
+git restore --staged .vibe-check/
 ```
 
 Run `git diff --cached --name-only` and check each staged filename against the sensitive file protection list above. If any match:
@@ -524,7 +557,7 @@ git commit -m "existing codebase — onboard baseline"
 
 <gate>Do not proceed until the commit completes. If it fails, report the exact error and stop.</gate>
 
-Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Git:** pending` to `**Git:** initialized`.
+Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Git:** pending` to `**Git:** initialized`. After the Edit, use the Read tool to verify `**Git:** initialized` appears in the artifact. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact — please change `**Git:** pending` to `**Git:** initialized` manually."
 
 ### Remote setup
 
@@ -560,14 +593,14 @@ Run:
 gh repo create --source=. --[private|public] --push
 ```
 Substitute `--private` or `--public` based on the user's answer. Report the result to the user. If it fails, tell the user and suggest: "Open the VS Code Source Control panel (branch icon in the left sidebar) and click **Publish to GitHub**."
-Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** [repo url, or "failed — add manually before /vc-ship"]`.
+Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** [repo url, or "failed — add manually before /vc-ship"]`. After the Edit, use the Read tool to verify `**Remote:** pending` no longer appears. If it does, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact — please change `**Remote:** pending` to `**Remote:** [value]` manually."
 
 If `gh` is not available:
 Tell the user: "GitHub CLI is not installed. To connect a remote later, open the VS Code Source Control panel (branch icon in the left sidebar) and click **Publish to GitHub**. You can do this before your first `/vc-ship`."
-Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** skipped — gh not available`.
+Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** skipped — gh not available`. After the Edit, use the Read tool to verify `**Remote:** pending` no longer appears. If it does, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact — please change `**Remote:** pending` to `**Remote:** skipped — gh not available` manually."
 
 **If skip:** note that remote setup was skipped.
-Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** skipped`.
+Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** skipped`. After the Edit, use the Read tool to verify `**Remote:** pending` no longer appears. If it does, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact — please change `**Remote:** pending` to `**Remote:** skipped` manually."
 Proceed to Phase 4.
 
 </phase>
@@ -642,8 +675,7 @@ Use the Read tool to check whether `.vibe-check/vc-plan/roadmap.md` exists.
 Use the Read tool to read the roadmap. Check whether a row for this chunk name already
 exists in the Features table (match on the chunk name column).
 
-- **Row already exists for this chunk name**: update the Branch column of that row to
-  `[branch-slug]` rather than appending a duplicate row.
+- **Row already exists for this chunk name**: use the Edit tool to update the Branch column of that row to `[branch-slug]` rather than appending a duplicate row. After the Edit, use the Read tool to verify the Branch column shows `[branch-slug]`. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the roadmap Branch column — please change the Branch cell for `[chunk-name]` to `[branch-slug]` manually."
 - **No row exists for this chunk name**: use the Edit tool to append a new row to the end
   of the Features table and a new row to the end of the Progress table. Count existing
   Feature rows to determine the next number.
@@ -652,11 +684,13 @@ Features row to append:
 ```
 | [next #] | [chunk-name] | audit-cleanup | — | `[branch-slug]` | .vibe-check/vc-plan/[branch-slug].md |
 ```
+After the Edit, use the Read tool to verify the Features row appears. If it does not, re-attempt once. If it still fails, tell the user: "Could not append the roadmap Features row — please add this line to the Features table manually: `| [next #] | [chunk-name] | audit-cleanup | — | \`[branch-slug]\` | .vibe-check/vc-plan/[branch-slug].md |`"
 
 Progress row to append:
 ```
 | [chunk-name] | stub | [branch-slug] | — |
 ```
+After the Edit, use the Read tool to verify the Progress row appears. If it does not, re-attempt once. If it still fails, tell the user: "Could not append the roadmap Progress row — please add this line to the Progress table manually: `| [chunk-name] | stub | [branch-slug] | — |`"
 
 **No roadmap exists:**
 Use the Write tool to create `.vibe-check/vc-plan/roadmap.md`:
@@ -729,7 +763,7 @@ git commit -m "chore: vc-onboard plan stubs and roadmap"
 ## Phase 5 — Handoff
 
 Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Status:** in progress`
-to `**Status:** complete`.
+to `**Status:** complete`. After the Edit, use the Read tool to verify `**Status:** complete` appears in the artifact. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact status — please change `**Status:** in progress` to `**Status:** complete` manually."
 
 Tell the user the following:
 
@@ -746,8 +780,8 @@ creates the branch automatically and loads the plan stub — then run `/vc-audit
 those files before making any changes.
 
 **Work one chunk at a time:** After `/vc-audit` converges and you've addressed the findings,
-run `/vc-ship` to create a PR. **Merge that PR into main before starting the next chunk.**
-Starting a new branch before merging will likely cause merge conflicts in the roadmap.
+run `/vc-ship` to create a pull request (PR). **Merge that pull request into main before starting the next chunk.**
+Starting a new chunk before the current one is merged will likely cause editing conflicts in the roadmap — two branches would be trying to update the same roadmap rows.
 
 **Navigate the roadmap:** Run `/vc-plan` from main at any time to see all chunks and choose
 what to work on next.

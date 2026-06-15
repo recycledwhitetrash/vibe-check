@@ -1,6 +1,6 @@
 # /vc-ship — Ship Flow
 
-<!-- version: 2026-06-10 -->
+<!-- version: 2026-06-14 -->
 
 Guides you through a safe push-and-PR flow for a feature branch. Before pushing, runs a
 gitleaks secret scan (hard stop on any detected secrets), a lint check, and test coverage
@@ -11,9 +11,11 @@ Checks that your audit is complete, scans the diff for files that shouldn't be c
 and generates a functional testing checklist. Checks commit history for non-bisectable
 patterns (WIP, fixup, squash) and offers to soft-reset and reorganize into clean atomic
 commits before creating the PR. Creates the PR with a body reviewers can actually use and
-updates the project roadmap automatically.
+updates the project roadmap and plan artifact automatically.
 
 Run this when your branch is ready to ship.
+
+Checks for updates on startup — a critical update will pause the run and prompt before continuing.
 
 ---
 
@@ -23,7 +25,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-ship` version matches `2026-06-10`**: proceed silently.
+**Fetch succeeded — `vc-ship` version matches `2026-06-14`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -48,10 +50,11 @@ If Continue: proceed to Phase 0.
 </output-handlers>
 
 **Auto-update:**
-1. Run `git rev-parse --show-toplevel` to find the project root.
-2. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md`.
-3. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-ship.md`. Tell the user "Updated to the latest version. Please re-run /vc-ship." Do not continue.
-4. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
+1. Run `git --version` to check whether git is installed. If git is not installed, skip the auto-update entirely and proceed to Phase 0 — git will be installed there first.
+2. Run `git rev-parse --show-toplevel` to find the project root.
+3. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md`.
+4. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-ship.md`. Tell the user "Updated to the latest version. Please re-run /vc-ship." Do not continue.
+5. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
 
@@ -105,7 +108,7 @@ gh --version
 git symbolic-ref refs/remotes/origin/HEAD
 ```
 
-<gate>Do not proceed until you have all four outputs.</gate>
+<gate>Do not proceed until you have all five outputs.</gate>
 
 <output-handlers>
 
@@ -116,7 +119,7 @@ required to create PRs — they can install it by searching for "GitHub CLI". St
 local branches.
 <mandatory>Call AskUserQuestion with:
 - Question: "The repo is in detached HEAD state — no branch is currently checked out. Which branch do you want to ship from?"
-- Options: list each local branch as its own option (use Other to type a branch name manually).
+- Options: list each local branch as its own option, plus "Enter the branch name above ↑" as a final option (ensures at least 2 options even if only 1 local branch exists).
 </mandatory>
 Run `git checkout [selected branch name]` to switch to that branch.
 Re-read `git branch --show-current` to confirm the branch name, then continue normally.
@@ -174,16 +177,15 @@ not a-z, 0-9, or `-` with `-`, collapse runs of consecutive `-` into one, strip 
 or trailing `-`. This is the branch slug used to find artifacts.
 
 **Resume check:** Use the Read tool to check whether `.vibe-check/vc-ship/[branch-slug].md`
-exists with `**Status:** in progress`. If it does: read `**Excluded files:**` and restore
-as `[excluded-files]`. Note that this is a resumed run — continue from the last completed
-phase rather than re-running Phase 0 setup.
+exists with `**Status:** in progress`. If it does: read `**Excluded files:**` and restore as `[excluded-files]`; read `**Last phase:**` and restore as `[last-phase]`. Note that this is a resumed run — skip all phases up to and including `[last-phase]` and continue from the next phase.
 
-If `[excluded-files]` is non-empty (set in the uncommitted changes handler above):
-use the Write tool to create `.vibe-check/vc-ship/[branch-slug].md`:
+Use the Write tool to create `.vibe-check/vc-ship/[branch-slug].md`:
 ```
 # vc-ship: [branch-slug]
 **Status:** in progress
-**Excluded files:** [comma-separated list of paths]
+**Base branch:** [BASE_BRANCH]
+**Excluded files:** [comma-separated list of paths, or "none" if empty]
+**Last phase:** 0
 ```
 
 ```bash
@@ -249,6 +251,8 @@ If the user continues: note audit status as "not run" for the review readiness t
 **vc-plan artifact NOT found**: note it does not exist. No warning needed.
 
 </output-handlers>
+
+If the state file `.vibe-check/vc-ship/[branch-slug].md` exists: use the Edit tool to update the `**Last phase:**` line to `**Last phase:** 1`.
 
 </phase>
 
@@ -378,7 +382,7 @@ the user: "These must be removed before shipping. If a secret was introduced in 
 commit, use `git filter-repo` to purge it from git history. Do not push until all secrets
 are resolved." Do not continue.
 
-**Both passes exit 0** (no secrets found): note "gitleaks ✓ clean" and proceed to Section B.
+**Both passes exit 0** (no secrets found): note "gitleaks ✓ clean". If the state file exists: use the Edit tool to update the `**Last phase:**` line to `**Last phase:** 2A`. Proceed to Section B.
 
 </gate>
 
@@ -422,7 +426,7 @@ Detect whether a lint command is available:
 Tell the user: "No lint config found — installing ESLint."
 Check for `tsconfig.json` to detect TypeScript.
 Run: `[PKG_MANAGER] add -D eslint @eslint/js` (TypeScript: also add `typescript-eslint`)
-Write `eslint.config.js`:
+Use the Read tool to check whether `eslint.config.js` already exists. If it exists, skip the Write and proceed directly to running the lint command. If it does not exist, write `eslint.config.js`:
 
 Plain JS:
 ```js
@@ -484,6 +488,8 @@ If Pause: stop here.
 If Continue: note "lint ⚠ failures" and proceed to Section C.
 
 </output-handlers>
+
+Before starting Section C: if the state file exists: use the Edit tool to update the `**Last phase:**` line to `**Last phase:** 2B`.
 
 ### C — Test coverage
 
@@ -663,6 +669,8 @@ counter. After the pass, re-run coverage and repeat this check.
 If still below 80% after 3 rounds: skip the question and proceed directly — note
 "tests ⚠ [N]% (below 80%)" and proceed to Phase 3.
 
+If the state file exists: use the Edit tool to update the `**Last phase:**` line to `**Last phase:** 2C`.
+
 </phase>
 
 ---
@@ -709,6 +717,8 @@ does not exist, use the Write tool to create it with just those patterns. Then r
 `git add .gitignore && git commit -m "chore: update .gitignore"`
 PowerShell: run as two separate commands.
 
+If the state file exists: use the Edit tool to update the `**Last phase:**` line to `**Last phase:** 3`.
+
 </phase>
 
 ---
@@ -734,7 +744,7 @@ If no flagged commits: proceed silently to Phase 4.
 
 If flagged commits are found:
 <mandatory>Call AskUserQuestion with:
-- Question: "Found [N] commit(s) that may break git bisect: [list of flagged messages]. Would you like to reorganize into clean, atomic commits? This will soft-reset the branch back to [BASE_BRANCH] — all your changes stay in the working tree, nothing is lost — then recommit them in logical groups."
+- Question: "Found [N] commit(s) that may break git bisect: [list of flagged messages]. Would you like to reorganize into clean, atomic commits? This will rewind the branch back to [BASE_BRANCH] (a soft reset) — all your changes stay in your files, nothing is lost — then recommit them in logical groups."
 - Options:
   - "Yes — help me reorganize into clean commits" (Recommended)
   - "Continue as-is"
@@ -743,12 +753,12 @@ If flagged commits are found:
 If yes:
 
 1. Run `git reset --soft $(git merge-base HEAD BASE_BRANCH)` to put all branch commits back
-   into the working tree, resetting exactly to the divergence point (not BASE_BRANCH tip).
+   back into your files, resetting exactly to the divergence point (not BASE_BRANCH tip).
 
 2. Run `git status --short` to get the full list of changed files.
 
 3. If `[excluded-files]` is non-empty: remove those paths from the file list before
-   proposing any groupings. Tell the user: "These files were in your working tree before
+   proposing any groupings. Tell the user: "These files had uncommitted changes before
    the regroup and are excluded from all commit groups — they remain untouched:
    [list of excluded files]."
 
@@ -778,6 +788,8 @@ If "Cancel regroup — continue as-is": proceed to Phase 4 without regrouping.
 <gate>Do not proceed to Phase 4 until all groups are committed and `git status --short`
 shows no files other than those in `[excluded-files]` (excluded working-tree files are
 expected to remain).</gate>
+
+If the state file exists: use the Edit tool to update the `**Last phase:**` line to `**Last phase:** 3.5`.
 
 </phase>
 
@@ -861,6 +873,8 @@ and testing checklist — so the user can read it before deciding.
 If the user requests edits: apply them and present the updated draft. Ask again. Do not
 proceed to Phase 5 until the user approves the draft.
 
+If the state file exists: use the Edit tool to update the `**Last phase:**` line to `**Last phase:** 4`.
+
 </phase>
 
 ---
@@ -892,7 +906,7 @@ git remote -v
 
 If `origin` is not listed:
 <mandatory>Call AskUserQuestion with:
-- Question: "No remote named 'origin' is configured. How would you like to add one?"
+- Question: "No GitHub remote is configured ('origin' — where git pushes your code). How would you like to add one?"
 - Options:
   - "Create a new GitHub repository for me"
   - "I have a repository — let me enter the URL"
@@ -920,6 +934,7 @@ If "I have a repository — let me enter the URL":
 - Question: "Enter your GitHub repository URL — for example: https://github.com/yourname/yourrepo.git"
 - Options:
   - "Cancel — I will add a remote manually"
+  - "Enter a URL above ↑"
 </mandatory>
 If the user provides a URL in Other: run `git remote add origin [URL]`, then proceed to the push.
 If Cancel: tell the user to run `git remote add origin [URL]` and then re-run `/vc-ship`. Stop here.
@@ -983,7 +998,7 @@ message and stop.</gate>
 
 Report the PR URL to the user.
 
-Tell the user: "Merge this PR before starting your next feature. Starting a new branch before this is merged will likely cause merge conflicts in the roadmap."
+Tell the user: "Merge this PR before starting your next feature. Starting a new feature before this one is merged will likely cause editing conflicts in the roadmap — two branches would be trying to update the same roadmap rows."
 
 ### Update plan artifact
 
@@ -992,7 +1007,7 @@ Check whether `.vibe-check/vc-plan/[branch-slug].md` exists using the Read tool.
 **Plan artifact found**: use the Edit tool to add `**Shipped:** [PR URL]` on a new line
 directly after the `**Status:**` line in the artifact header. If `[failed-coverage-items]`
 is non-empty, also add `**Coverage gaps:** auto-generated tests could not cover: [failed-coverage-items list]`
-on the following line.
+on the following line. After the Edit, use the Read tool to verify `**Shipped:**` appears in the artifact header. If it does not, re-attempt once. If it still fails, tell the user: "Could not record the PR URL in the plan artifact — please add `**Shipped:** [PR URL]` on a new line after `**Status:**` manually."
 
 **Plan artifact not found**: note this — the roadmap update below must record the branch as
 shipped without a plan.
@@ -1003,7 +1018,7 @@ Check whether `.vibe-check/vc-plan/roadmap.md` exists using the Read tool.
 
 **Roadmap exists — row found** (Progress table has a row where Branch matches
 `[current-branch-slug]`): use the Edit tool to update that row — set `Built` to `✓`. If
-no plan artifact was found, also set Plan status to `no plan`.
+no plan artifact was found, also set Plan status to `no plan`. After the Edit, use the Read tool to verify the `Built` column shows `✓` for this row. If it does not, re-attempt once. If it still fails, tell the user and show the exact row text to update manually.
 
 **Roadmap exists — no exact match**: before treating this as unplanned, attempt a fuzzy
 match. Strip any trailing `-N` suffix from `[current-branch-slug]` (where N is a whole
@@ -1071,8 +1086,7 @@ plans finalize and branches ship.
 
 ### Commit and push artifact updates
 
-If `.vibe-check/vc-ship/[branch-slug].md` exists: use the Edit tool to update
-`**Status:** in progress` to `**Status:** complete`.
+If `.vibe-check/vc-ship/[branch-slug].md` exists: read the file and check the `**Status:**` field. If it already says `complete`, skip the Edit. Otherwise use the Edit tool to update `**Status:** in progress` to `**Status:** complete`. After the Edit, use the Read tool to verify `**Status:** complete` appears in the file. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the ship state file — please change `**Status:** in progress` to `**Status:** complete` manually."
 
 After all artifact updates are complete, commit and push them so they are visible in the PR:
 
@@ -1081,6 +1095,6 @@ git add .vibe-check/ && git commit -m "chore: update vibe-check artifacts for [b
 ```
 PowerShell: run as three separate commands.
 
-If the push fails: read the error output and attempt to fix the underlying issue (e.g. diverged remote, missing upstream), then retry. If the push still fails after one fix attempt, tell the user the error and instruct them to push manually: `git push`.
+If the push fails: read the error output and attempt to fix the underlying issue (e.g. diverged remote, missing push target), then retry. If the push still fails after one fix attempt, tell the user the error and instruct them to push manually: `git push`.
 
 </phase>

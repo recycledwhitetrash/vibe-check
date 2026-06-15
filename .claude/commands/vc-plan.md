@@ -1,6 +1,6 @@
 # /vc-plan
 
-<!-- version: 2026-06-10 -->
+<!-- version: 2026-06-14 -->
 
 The project coordinator for your entire codebase. Run it before writing code to plan a
 feature, typically from your main branch to pick up the next thing to build, or when you're not sure
@@ -8,7 +8,7 @@ what to build next and want help figuring it out.
 
 For a single feature, it guides a structured conversation — scope calibration, status quo
 check, narrowest useful MVP, premise challenge, approaches, definition of done, risks, failure
-modes, and security — then runs an adversarial review and produces an implementation guide
+modes, security, and long-term trajectory — then runs an adversarial review and produces an implementation guide
 with a copyable "Start here" instruction for Claude.
 
 For a large initiative or full project, it decomposes the scope into a feature roadmap,
@@ -19,6 +19,8 @@ that tracks planning and build status across the whole project. The roadmap stor
 scope classification (internal vs. client-facing) and grows over time — new features are added
 as they are planned, branches are marked built when they ship.
 
+Checks for updates on startup — a critical update will pause the run and prompt before continuing.
+
 ---
 
 ## Version check
@@ -27,7 +29,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-plan` version matches `2026-06-10`**: proceed silently.
+**Fetch succeeded — `vc-plan` version matches `2026-06-14`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -52,10 +54,11 @@ If Continue: proceed.
 </output-handlers>
 
 **Auto-update:**
-1. Run `git rev-parse --show-toplevel` to find the project root.
-2. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-plan.md`.
-3. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-plan.md`. Tell the user "Updated to the latest version. Please re-run /vc-plan." Do not continue.
-4. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
+1. Run `git --version` to check whether git is installed. If git is not installed, skip the auto-update entirely and proceed to Phase 0 — git will be installed there first.
+2. Run `git rev-parse --show-toplevel` to find the project root.
+3. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-plan.md`.
+4. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-plan.md`. Tell the user "Updated to the latest version. Please re-run /vc-plan." Do not continue.
+5. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
 
@@ -108,6 +111,8 @@ git for-each-ref --format='%(refname:short)' refs/heads/
 
 <gate>Do not proceed until you have both command outputs.</gate>
 
+**If `git branch --show-current` returned empty AND `git for-each-ref` returned non-empty output** (branches exist but none is checked out — detached HEAD state): Tell the user: "You are in detached HEAD state — this usually means you checked out a specific commit rather than a branch. Run `git checkout [BASE_BRANCH]` to return to your main branch before planning." Stop here.
+
 **If both commands returned empty output** (no branches exist — brand-new repository with no commits): run `git commit --allow-empty -m "init"` to create the initial commit. Tell the user: "Created an initial commit so branch operations will work — continuing with planning." Then re-run both commands above to get the current branch and branch list, and continue normally.
 
 From the output, identify the current branch name.
@@ -156,6 +161,19 @@ After reading the roadmap (or confirming it does not exist), determine PROJECT_S
 
 Store the answer as PROJECT_SCOPE.
 
+If the roadmap does not yet exist: use the Write tool to create `.vibe-check/vc-plan/roadmap.md` with a minimal header so PROJECT_SCOPE survives compaction:
+
+```
+# Project roadmap
+
+**Created:** [today's date]
+**Status:** in progress
+**Project scope:** [PROJECT_SCOPE]
+**Base branch:** [BASE_BRANCH]
+```
+
+Phase 2 will complete the roadmap with features and tables.
+
 If PROJECT_SCOPE is "Internal tooling that generates client-facing artifacts" or
 "Client-facing product": tell the user:
 
@@ -190,12 +208,26 @@ If the branch already exists:
   - "Yes — switch to it"
   - "No — this is a different branch"
 </mandatory>
-If yes: run `git checkout [selected-slug]`.
-If no: ask the user to type a new branch name in Other. Slugify it, run `git checkout -b [new-slug]`.
-Then use the Edit tool to update the roadmap row (Branch column: `[selected-slug]` → `[new-slug]`)
-and rename the stub file from `.vibe-check/vc-plan/[selected-slug].md` to
-`.vibe-check/vc-plan/[new-slug].md` — use `mv` in bash/zsh or `Move-Item` in PowerShell.
-Confirm they are now on the branch.
+If yes: run `git status --short`. If any uncommitted changes exist:
+<mandatory>Call AskUserQuestion with:
+- Question: "You have uncommitted changes on `[current-branch]`. Stash them before switching to `[selected-slug]`?"
+- Options:
+  - "Yes — stash them" (run `git stash` before switching)
+  - "No — switch anyway" (user accepts the risk of conflicts)
+</mandatory>
+If stash: run `git stash`. After checkout succeeds, tell the user: "Your changes on `[current-branch]` have been stashed. When you return to that branch, run `git stash pop` to restore them."
+Run `git checkout [selected-slug]`.
+If no: ask the user to type a new branch name in Other. Slugify it.
+
+Run `git branch --list "[new-slug]*"` to check for collisions. Only treat as a collision if a branch name is exactly `[new-slug]` or matches `[new-slug]-N` where N is a whole number. If a collision exists, take the highest N and use N+1 to produce `[final-slug]`. Otherwise `[final-slug]` = `[new-slug]`.
+
+Run `git checkout -b [final-slug]`. Confirm they are now on the branch.
+
+Use the Edit tool to update the roadmap row (Branch column: `[selected-slug]` → `[final-slug]`).
+
+Use the Read tool to check whether `.vibe-check/vc-plan/[selected-slug].md` exists.
+- If it exists: rename it to `.vibe-check/vc-plan/[final-slug].md` — use `mv` in bash/zsh or `Move-Item` in PowerShell.
+- If it does not exist: skip the rename and tell the user: "No stub file was found for `[selected-slug]` — a new stub will be created when you reach the artifact step."
 
 If the branch does not exist: run `git checkout -b [selected-slug]`. Confirm they are now on
 the branch.
@@ -283,7 +315,7 @@ Run `git status --short`. If any uncommitted changes exist:
   - "Yes — stash them" (run `git stash` before switching)
   - "No — switch anyway" (user accepts the risk of conflicts)
 </mandatory>
-If stash: run `git stash`, then proceed with checkout. After the checkout succeeds, tell the user: "Your changes on `[current-branch]` have been stashed. When you return to that branch, run `git stash pop` to restore them."
+If stash: run `git stash`, then proceed with checkout. After the checkout succeeds, tell the user: "Your changes on `[current-branch]` have been temporarily saved (stashed) — they are not lost, just parked. Run `git stash pop` on that branch when you want them back."
 - bash/zsh: `git checkout [BASE_BRANCH] && git pull origin [BASE_BRANCH]`
 - PowerShell: run as two separate commands: `git checkout [BASE_BRANCH]` then `git pull origin [BASE_BRANCH]`
 If the pull fails: continue with a warning — "Could not pull latest from origin — proceeding with local state."
@@ -535,7 +567,7 @@ Run `git status --short`. If uncommitted changes exist:
   - "Carry them over — these changes belong to this feature branch"
   - "Stash them — keep [BASE_BRANCH] clean, I'll decide later"
 </mandatory>
-If stash: run `git stash`. After the branch is created, tell the user: "Your changes on [BASE_BRANCH] have been stashed. Run `git stash pop` if you want to restore them on this new branch."
+If stash: run `git stash`. After the branch is created, tell the user: "Your changes on [BASE_BRANCH] have been temporarily saved (stashed) — they are not lost, just parked. Run `git stash pop` if you want to restore them on this new branch."
 
 Run `git checkout -b [final-slug]`.
 <gate>Do not proceed until the branch is created. Confirm to the user: "You are now on branch `[final-slug]`."</gate>
@@ -653,13 +685,44 @@ Derive a short feature name from the confirmed problem statement (3–5 words, t
 
 Check whether `.vibe-check/vc-plan/roadmap.md` exists using the Read tool.
 
-**If the roadmap exists**: use the Read tool to read the current Features table and identify the highest row number. Use that number + 1 as `[next #]`. Then use the Edit tool to append one row to the Features table and one row to the Progress table:
+**If the roadmap exists and has a `## Features` table**: use the Read tool to read the current Features table and identify the highest row number. Use that number + 1 as `[next #]`. Then use the Edit tool to append one row to the Features table and one row to the Progress table:
 - Features row: `| [next #] | [feature name] | standalone | — | \`[branch-slug]\` | \`.vibe-check/vc-plan/[branch-slug].md\` |`
 - Progress row: `| [feature name] | draft | [branch-slug] | — |`
 
 After each Edit, use the Read tool to verify the new row appears in the file. If a row is
 missing, re-attempt the Edit once. If it still fails, tell the user and provide the exact row
 text to add manually.
+
+**If the roadmap exists but has no `## Features` table** (header written during Phase 0): use the Edit tool to append the following after the existing header:
+
+```
+---
+
+## Features
+
+| # | Feature | Build phase | Depends on | Branch | Plan stub |
+|---|---------|------------|-----------|--------|-----------|
+| 1 | [feature name] | standalone | — | `[branch-slug]` | `.vibe-check/vc-plan/[branch-slug].md` |
+
+---
+
+## Progress
+
+| Feature | Plan status | Branch | Built |
+|---------|------------|--------|-------|
+| [feature name] | draft | [branch-slug] | — |
+
+---
+
+## How to work on a feature
+
+Run `/vc-plan` from your main branch — it reads this roadmap, offers available features as
+options, and creates branches automatically. After planning, implement using the Start here
+instruction, then run `/vc-audit` and `/vc-ship`. The roadmap updates automatically when
+plans finalize and branches ship.
+```
+
+After the Edit, use the Read tool to verify the `## Features` table appears. If it does not, re-attempt once. If it still fails, tell the user and provide the exact text to add manually.
 
 **If no roadmap exists**: use the Write tool to create `.vibe-check/vc-plan/roadmap.md`:
 
@@ -840,6 +903,8 @@ If approaches were skipped (scope was small and the right approach was obvious):
 **Selected:** [selected approach name]
 ```
 
+After the Edit, use the Read tool to verify the Approaches section no longer contains `*In progress*`. If it does, re-attempt once. If it still fails, tell the user and provide the exact text to add manually.
+
 Otherwise:
 
 <mandatory>Use the Edit tool to replace the `*In progress*` placeholder in the Approaches section with:
@@ -864,7 +929,11 @@ Otherwise:
 ```
 </mandatory>
 
+After the Edit, use the Read tool to verify the Approaches section no longer contains `*In progress*`. If it does, re-attempt once. If it still fails, tell the user and provide the exact text to add manually.
+
 <mandatory>Use the Edit tool to replace the `*In progress*` placeholder in the Not in scope section with the user's answer as a bulleted list. If the user listed reasons, include them. If the list is empty, write: "None stated."</mandatory>
+
+After the Edit, use the Read tool to verify the Not in scope section no longer contains `*In progress*`. If it does, re-attempt once. If it still fails, tell the user and provide the exact text to add manually.
 
 </phase>
 
@@ -904,6 +973,8 @@ Once the criteria are confirmed, update the artifact's Definition of done sectio
 ```
 </mandatory>
 
+After the Edit, use the Read tool to verify the Definition of done section no longer contains `*In progress*`. If it does, re-attempt once. If it still fails, tell the user and provide the exact text to add manually.
+
 ### Test planning
 
 Ask the user what tests they plan to write. This is lightweight — not a full test plan,
@@ -934,6 +1005,8 @@ add a single pre-checked item instead: `- [x] Test: N/A — [user's stated reaso
 If the user says they are not writing tests or does not have an answer, add a
 single item: `- [ ] Test: happy path and at least one failure case covered`
 </mandatory>
+
+After the Edit, use the Read tool to verify the test criteria were appended to the Definition of done checklist. If the section is unchanged, re-attempt once. If it still fails, tell the user and provide the exact text to add manually.
 
 </phase>
 
@@ -977,6 +1050,8 @@ before continuing.
 Once risks are confirmed, update the artifact's Risks section:
 
 <mandatory>Use the Edit tool to replace the `*In progress*` placeholder in the Risks section with the confirmed table.</mandatory>
+
+After the Edit, use the Read tool to verify the Risks section no longer contains `*In progress*`. If it does, re-attempt once. If it still fails, tell the user and provide the exact text to add manually.
 
 </phase>
 
@@ -1036,6 +1111,8 @@ Once confirmed, update the artifact's Failure modes & security section:
 
 <mandatory>Use the Edit tool to replace the `*In progress*` placeholder in the Failure modes & security section with the confirmed content. Use the table format above for failure modes, followed by a short Security considerations paragraph or bullet list.</mandatory>
 
+After the Edit, use the Read tool to verify the Failure modes & security section no longer contains `*In progress*`. If it does, re-attempt once. If it still fails, tell the user and provide the exact text to add manually.
+
 </phase>
 
 ---
@@ -1084,9 +1161,13 @@ Once confirmed, update the artifact's Long-term trajectory section and finalize 
 ```
 </mandatory>
 
+After the Edit, use the Read tool to verify the Long-term trajectory section no longer contains `*In progress*`. If it does, re-attempt once. If it still fails, tell the user and provide the exact text to add manually.
+
 <mandatory>Use the Read tool to check the current value of `**Status:**` in the artifact.
 
-If it is `draft`: use the Edit tool to change `**Status:** draft` to `**Status:** final`.
+If it is `draft`: use the Edit tool to change `**Status:** draft` to `**Status:** final`. After the Edit, use the Read tool to verify `**Status:** final` appears in the artifact. If it does not, re-attempt once. If it still fails, tell the user and provide the exact line to replace manually.
+
+If it starts with `stub`: use the Edit tool to replace the entire `**Status:** stub...` line (whatever it says after `stub`) with `**Status:** final`. After the Edit, use the Read tool to verify `**Status:** final` appears in the artifact. If it does not, re-attempt once. If it still fails, tell the user and provide the exact line to replace manually.
 
 If it is already `final`: check whether a `**Last updated:**` line exists in the artifact header. If it does: use the Edit tool to update it to `**Last updated:** [today's date]`. If it does not: use the Edit tool to insert `**Last updated:** [today's date]` on a new line immediately after the `**Status:** final` line.</mandatory>
 
@@ -1306,6 +1387,14 @@ they just built it with you.
 This section runs only when the user chose "Break it down" in the scope assessment. It
 produces a roadmap artifact and a plan stub for each feature. Normal phases do not run.
 
+**Branch check:** Before creating any files, verify that the current branch is BASE_BRANCH. If not, switch now:
+
+```bash
+git checkout [BASE_BRANCH]
+```
+
+If the checkout fails (uncommitted changes): offer to stash first using the same AskUserQuestion pattern used in Phase 0.
+
 ### Step 0 — Context capture
 
 Before mapping features, establish whether there is an existing codebase and capture relevant context that will be written into every stub.
@@ -1472,7 +1561,7 @@ Each stub follows this template:
 2. Run `/vc-plan` — pick this feature, choose "review and update the existing plan," and continue from the Approaches section — Problem/Goal and Direction are already filled in
 3. Implement using the Start here instruction the plan generates
 4. Run `/vc-audit` on the branch before submitting
-5. Run `/vc-ship` to push and create the PR — it updates the roadmap automatically
+5. Run `/vc-ship` to push and create the pull request (PR) — it updates the roadmap automatically
 
 ---
 
@@ -1555,12 +1644,22 @@ For each feature, in build order:
 2. Run `/vc-plan` — it detects the stub and continues from the approaches phase with the problem, existing-code context, and dependencies already loaded
 3. Implement using the Start here instruction the plan generates
 4. Run `/vc-audit` on the branch before submitting
-5. Run `/vc-ship` to push and create the PR
+5. Run `/vc-ship` to push and create the pull request (PR)
 6. vc-ship updates the roadmap automatically when you ship each branch — no manual step needed
 
 ---
 
-Commit instruction: "Commit `.vibe-check/` now so the roadmap and stubs travel with the repo from the start."
+<mandatory>Call AskUserQuestion with:
+- Question: "Your roadmap and plan stubs are saved at `.vibe-check/vc-plan/`. Would you like me to commit them now so they travel with the repo from the start?"
+- Options:
+  - "Yes — commit them now" (Recommended)
+  - "No — I'll commit them myself"
+</mandatory>
+
+If yes:
+- bash/zsh: `git add .vibe-check/ && git commit -m "docs: add project roadmap and plan stubs"`
+- PowerShell: run as two separate commands: `git add .vibe-check/` then `git commit -m "docs: add project roadmap and plan stubs"`
+If no: continue.
 
 Then ask whether the user wants to start planning the first feature now:
 
@@ -1573,8 +1672,18 @@ Then ask whether the user wants to start planning the first feature now:
 
 If yes: run `git branch --list "[first-slug]*"` to check for existing branches. Filter results:
 only treat as a collision if a branch name is exactly `[first-slug]` or matches `[first-slug]-N`
-where N is a whole number. If a collision exists, take the highest N and use N+1. Then run
-`git checkout -b [final-slug]`. Confirm the branch was created.
+where N is a whole number. If a collision exists, take the highest N and use N+1.
+
+Run `git status --short`. If uncommitted changes exist:
+<mandatory>Call AskUserQuestion with:
+- Question: "You have uncommitted changes on [BASE_BRANCH] — these will carry over to the new branch `[final-slug]`. Carrying them over means those edits will be part of this feature branch. Stashing them keeps [BASE_BRANCH] clean. What would you like to do?"
+- Options:
+  - "Carry them over — these changes belong to this feature branch"
+  - "Stash them — keep [BASE_BRANCH] clean, I'll decide later"
+</mandatory>
+If stash: run `git stash`. After the branch is created, tell the user: "Your changes on [BASE_BRANCH] have been temporarily saved (stashed) — they are not lost, just parked. Run `git stash pop` if you want to restore them on this new branch."
+
+Run `git checkout -b [final-slug]`. Confirm the branch was created.
 This is now `[branch-slug]` for all remaining phases. Then jump directly to Phase 3 — the stub already has Problem/Goal and Direction loaded, so begin at the codebase check. Do not re-run Phases 0, 1, or 2.
 
 If no: tell the user that when they are ready to work on a feature, running `/vc-plan` from
