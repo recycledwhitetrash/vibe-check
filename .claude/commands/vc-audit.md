@@ -1,6 +1,6 @@
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-14 -->
+<!-- version: 2026-06-15.3 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -27,7 +27,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-audit` version matches `2026-06-14`**: proceed silently.
+**Fetch succeeded — `vc-audit` version matches `2026-06-15.3`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -153,8 +153,8 @@ Note any paths returned. If many files share a common directory (e.g., `node_mod
 ```bash
 git log BASE_BRANCH...HEAD --oneline
 git diff BASE_BRANCH...HEAD --stat
-git diff BASE_BRANCH...HEAD --name-only -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!__pycache__/**' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
-git diff BASE_BRANCH...HEAD --shortstat -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!__pycache__/**' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
+git diff BASE_BRANCH...HEAD --name-only -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
+git diff BASE_BRANCH...HEAD --shortstat -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
 ```
 
 <gate>Do not proceed past this block until you have command output.</gate>
@@ -214,7 +214,7 @@ what each file does and how the changes interact before selecting lenses.
 Sensitive files are excluded from the diff automatically (see Sensitive File Protection).
 
 ```bash
-git diff BASE_BRANCH...HEAD -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!__pycache__/**' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions — from `git ls-files --cached --ignored --exclude-standard` above]
+git diff BASE_BRANCH...HEAD -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions — from `git ls-files --cached --ignored --exclude-standard` above]
 ```
 
 Substitute BASE_BRANCH with the value determined above. For an initial commit session, substitute `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
@@ -349,7 +349,11 @@ State your selection in the audit artifact before walking anything.
   logic errors in conditions; integer overflow/underflow on arithmetic involving user-
   supplied values (amounts, counts, offsets); type confusion where the same variable holds
   different types across branches; boundary conditions on empty collections and single-
-  element collections specifically (off-by-one is most common at the edges)
+  element collections specifically (off-by-one is most common at the edges);
+  algorithmic complexity — O(n²) or worse from nested loops over the same collection,
+  `find`/`filter` inside `map`/`forEach`, repeated sorting of the same list, or string
+  concatenation in a loop; consider whether a hash/set/map lookup would replace a
+  linear scan
 - **Error handling**: swallowed exceptions/errors, non-fatal treatment of fatal conditions,
   partial failure leaving inconsistent state, missing rollback, fallbacks that silently mask
   bugs; for scripts: exit codes not checked, `pipefail` absent, `2>/dev/null` on errors
@@ -407,6 +411,36 @@ State your selection in the audit artifact before walking anything.
   sustained load — all connections checked out, new requests queue indefinitely or time
   out; goroutine or thread leaks from spawned workers that are never joined or cancelled;
   memory leaks from closures capturing large objects that are never released
+- **Maintainability**: dead code — variables assigned but never read, functions defined
+  but never called (check with the Grep tool across the repo), imports no longer
+  referenced after this change; magic numbers — bare numeric literals used in logic
+  (thresholds, limits, retry counts, timeouts) that should be named constants; hardcoded
+  URLs, hostnames, or ports that belong in config; DRY violations — similar code blocks
+  (3+ lines) copy-pasted in the diff where a shared helper would remove the duplication;
+  conditional side effects — one branch updates a related record, emits an event, or
+  writes a log but a sibling branch silently skips that same step; module boundary
+  violations — a caller reaching into another module's internals directly, or database
+  queries placed in layers (controller, view, route handler) that don't own data access
+- **API contract**: applies when the diff touches routes, endpoints, or response shapes —
+  regardless of language or framework (Node/Express, Python/Flask/FastAPI/Django REST,
+  Go, Ruby/Rails, etc.); breaking changes to response shape — removed or renamed fields,
+  changed field types (string → number, object → array), new required request parameters
+  added without a default; changed HTTP methods or status codes on existing endpoints;
+  versioning strategy inconsistency (mixing URL-path `/v1`, header, and query-param
+  versioning in the same API); error response format inconsistent with other endpoints in
+  the codebase; list endpoints with no pagination and no `LIMIT` that grow unboundedly
+  with data; rate limiting absent on an endpoint where similar endpoints have it; API
+  documentation (OpenAPI/Swagger spec, README) not updated to match changed behavior;
+  backwards compatibility for clients that can't force-update (mobile apps, third-party
+  integrations, older SDK versions that may still be in use)
+- **Cryptographic misuse**: weak hashing algorithms (MD5, SHA1) used for security-sensitive
+  operations such as password storage or token generation; predictable randomness
+  (`Math.random()`, Python `random`, `rand()`) used to generate tokens, session IDs,
+  nonces, or CSRF values — must use a cryptographically secure RNG; non-constant-time
+  comparison (`==`, `===`, `string.compare()`) on secrets, HMAC digests, or API tokens
+  enables timing attacks that reveal whether a guess is correct; hardcoded encryption
+  keys or initialization vectors; missing salt in password hashing (bcrypt/argon2 handle
+  this automatically; hand-rolled hashing often forgets it)
 - **Anything else**: if it smells wrong and doesn't fit a category, surface it. The lenses
   are a starting point, not a scope boundary.
 
@@ -476,6 +510,16 @@ State your selection in the audit artifact before walking anything.
 - **Accessibility gaps**: color contrast ratio below 4.5:1 on body text or 3:1 on large
   text; CSS animations or transitions that do not respect `prefers-reduced-motion: reduce`;
   layout that breaks or clips content at narrow viewport widths, trapping users
+- **Bundle size and rendering performance**: new production dependencies that are
+  known-heavy (moment.js, full lodash, jQuery) when a lighter alternative or native API
+  exists; barrel imports (`import { x } from 'library'`) instead of deep imports
+  (`import x from 'library/specific'`) that block tree-shaking and inflate the bundle;
+  `React.memo`, `useMemo`, or `useCallback` absent on components or computed values
+  passed as props where reference instability causes unnecessary child re-renders;
+  sequential `await fetch()` calls that could be `Promise.all` (fetch waterfall);
+  layout thrashing — reading DOM geometry (`.offsetHeight`, `.getBoundingClientRect()`)
+  then writing layout properties inside the same loop; below-fold images missing
+  `loading="lazy"`
 
 ### React Native lenses
 
@@ -1441,7 +1485,7 @@ _none yet_
    - **Roadmap**: use the Read tool to check `.vibe-check/vc-plan/roadmap.md`. If it exists and has a `**Base branch:**` line, use that value.
    - **Derive**: run `git symbolic-ref refs/remotes/origin/HEAD`. If it returns a value, strip the `refs/remotes/origin/` prefix directly — do not use shell utilities. Otherwise run `git for-each-ref --format='%(refname:short)' refs/heads/` and identify the default branch (priority: `main` > `master` > `develop`). Then call AskUserQuestion — "I derived `[branch]` as the base branch for this audit. Is that correct?" — Options: "Yes — use [branch]" / "No — use a different branch (Other)". Use the confirmed or entered value as BASE_BRANCH.
 2. If the most recent pass entry in the pass log shows `— in progress`, that pass did not complete. Discard it and restart the pass from the beginning. Do not attempt to continue from where the pass left off — restart it entirely using the diff re-read below (or file re-read if FILE_READ_MODE — see below).
-3. Derive the current pass number, all open findings, and the clean pass count from the artifact. Do not rely on conversation memory.
+3. Derive the current pass number, all open findings, and the clean pass count from the artifact. Do not rely on conversation memory. Also scan the entire artifact for the highest F-NNN number referenced anywhere — including in Resolved cross-references like `(was F-011)` and Deferred entries. Store this value as NEXT_F_NUM. All new findings in this pass must be numbered starting from NEXT_F_NUM + 1. Re-read the full surface map section from the artifact and store every surface listed — all of them must be walked this pass regardless of prior pass results.
 4. Read the `**Subagents:**` field from the artifact header. Do not ask the user about subagents again — this setting was recorded when the audit was created.
 5. Re-derive FILE_READ_MODE: check whether `git diff BASE_BRANCH...HEAD --shortstat` is empty AND the plan stub at `.vibe-check/vc-plan/[branch-slug].md` contains a `## Chunk files` section. If both are true, FILE_READ_MODE = true.
 
@@ -1480,12 +1524,14 @@ If any file read returned exactly 2000 lines, it may be truncated. Re-read it wi
 **Otherwise — re-read the full branch diff:**
 
 ```bash
-git diff BASE_BRANCH...HEAD -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!__pycache__/**' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions — re-run `git ls-files --cached --ignored --exclude-standard` to get these]
+git diff BASE_BRANCH...HEAD -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions — re-run `git ls-files --cached --ignored --exclude-standard` to get these]
 ```
 
 Substitute BASE_BRANCH with the base branch identified in Phase 0. For an initial commit session, substitute `4b825dc642cb6eb9a060e54bf8d69288fbee4904`. If `$ARGUMENTS` was provided, append all scope paths after the sensitive file exclusions.
 
 <gate>Execute this block before walking any surface. Do not proceed until you have the diff output. The scope of every pass is the full branch diff — never "changes since the last pass," never "what I changed this pass," never from memory.</gate>
+
+**If `**Subagents:** enabled` in the artifact header:** Dispatch the adversarial subagent now in the background using the Agent tool with `run_in_background: true`, so it analyzes the diff in parallel while the main walk runs. Use the same subagent prompt from the Adversarial pass section below, but omit the "do not repeat open findings" instruction — the subagent runs before Phase 5 writes findings, so deduplication happens at Phase 6 when results are collected. Store a note that the background subagent was dispatched this pass.
 
 <walk-rules>
 
@@ -1536,6 +1582,8 @@ are the audit surface, not a diff.
 
 </walk-rules>
 
+**Coverage gate:** Before proceeding to Phase 5, re-read the surface map from the artifact and count every surface listed. Verify you produced at least one file:line citation for each surface this pass. If any surface has no citation, walk it now. Do not proceed to Phase 5 with any surface uncovered — an incomplete pass is not a clean pass, regardless of finding count.
+
 </phase>
 
 ---
@@ -1547,7 +1595,7 @@ are the audit surface, not a diff.
 After each pass, update the artifact in place. The artifact accumulates across passes —
 do not create a new file per pass.
 
-Append to the pass log:
+Add the following block at the **end of the artifact file**. Use the Read tool first to find the current last line of the artifact, then use the Edit tool with that last line as the `old_string` anchor so the new pass entry is added after it. Do not insert after an earlier pass entry — always anchor to the actual end of the file.
 
 ```markdown
 ### Pass N — [date/time]
@@ -1617,7 +1665,11 @@ Confidence guide (include as `(N/10)` next to severity on every F-NNN finding):
 
 If the artifact header shows `**Subagents:** enabled`:
 
-<mandatory>Dispatch a subagent using the Agent tool. The subagent has no context from this session — it must derive everything from the source and the artifact. Before dispatching, substitute the actual values into the prompt. Do not leave placeholder text.
+<mandatory>Collect the background subagent result dispatched at the start of Phase 4. The subagent ran in parallel while the main walk executed — its findings should now be available. If it has not yet completed, wait for it now.
+
+The subagent prompt used was the one below (for reference — do not re-dispatch). Process the returned output: for each finding, check whether the same issue is already recorded as Open in the artifact from Phase 5. If a duplicate exists, skip it. Add any non-duplicate findings to the artifact using the same F-NNN numbering sequence.
+
+The subagent prompt (for reference only — already dispatched):
 
 **If FILE_READ_MODE is false** (normal diff-based audit): substitute BASE_BRANCH, artifact path, and scope paths into this prompt. If this is a scoped audit, read the `**Scope:**` field from the artifact header and append the scope path(s) as trailing arguments after the sensitive file exclusions in the git diff command (e.g. `-- ':!...' src/auth/`). If this is a full audit, omit the trailing path arguments entirely.
 
@@ -1668,8 +1720,6 @@ Output one finding per line in this format:
 
 If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"
 </mandatory>
-
-<gate>Do not proceed until the subagent has returned results.</gate>
 
 Process the subagent output and update the artifact:
 
@@ -1744,7 +1794,7 @@ After the pass report:
    - Total F-NNN still open across all passes
 
    <definition name="clean-pass">**A pass is clean when:**
-   1. Zero new F-NNN findings were opened, AND
+   1. Zero new F-NNN findings were opened this pass — by either the structured walk or the adversarial subagent. A finding that was opened AND fixed in the same pass still makes the pass not clean; "opened-and-fixed" counts the same as "opened-and-left-open" for this criterion. Findings in test files count the same as findings in production code — the file location does not change cleanliness. AND
    2. The pass log contains a surface receipt entry with at least one file:line citation
       for every surface in the surface map.
    A pass with no new findings but incomplete surface coverage is not clean — it is an
@@ -1756,6 +1806,9 @@ After the pass report:
    Otherwise use the **standard checkpoint**.
 
    **Standard checkpoint (plain text, no markdown):**
+
+   Before showing the checkpoint, re-read the artifact using the Read tool. Count R-NNN, D-NNN, and X-NNN entries added this pass, and count all remaining F-NNN entries in Open. Use these counts — do not use memory or session totals.
+
    ```
    Pass [N] complete
 
@@ -1804,7 +1857,16 @@ After the pass report:
    ```
    If unaudited files remain, add: "These files will not be reviewed before merge. Run `/vc-audit [path]` to cover them, or proceed knowing they are unreviewed."
 
-   Then show the convergence prompt:
+   Before showing the convergence prompt, re-read the artifact using the Read tool and count all entries in each section: R-NNN entries in Resolved, D-NNN entries in Deferred, X-NNN entries in Dismissed. Use these counts — do not use memory or session totals.
+
+   **Note for small branches:** On branches with fewer than five changed files, two clean
+   passes can be reached quickly. Before showing the convergence prompt, confirm that the surface map
+   was comprehensive (one entry per changed file) and that each receipt entry cited actual
+   line numbers — not just a surface name with no evidence.
+
+   <mandatory>Call AskUserQuestion with the following question text and options. Do not declare convergence or update the artifact until the user explicitly selects "Declare convergence."
+
+   Question text (plain text — fill in the brackets):
    ```
    Two consecutive clean passes — no new findings in either pass.
    All findings resolved, deferred, or dismissed.
@@ -1816,15 +1878,11 @@ After the pass report:
    Ready to declare convergence?
    ```
 
-   **Note for small branches:** On branches with fewer than five changed files, two clean
-   passes can be reached quickly. Before declaring convergence, confirm that the surface map
-   was comprehensive (one entry per changed file) and that each receipt entry cited actual
-   line numbers — not just a surface name with no evidence.
-
    Options:
    - **Declare convergence** — Mark this audit complete
    - **Run one more pass** — Not confident yet, keep going
    - **Pause** — Stop here; resume later by running /vc-audit again
+   </mandatory>
 
    **If the user declares convergence**, update the artifact header:
 

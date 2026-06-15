@@ -1,6 +1,6 @@
 # /vc-bootstrap — Machine Setup
 
-<!-- version: 2026-06-14 -->
+<!-- version: 2026-06-14.1 -->
 
 Setup for the vibe-check suite. Configures git, installs and authenticates GitHub CLI,
 installs gitleaks, and generates a security-baseline `.gitignore` for your project. Orients
@@ -17,7 +17,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-bootstrap` version matches `2026-06-14`**: proceed silently.
+**Fetch succeeded — `vc-bootstrap` version matches `2026-06-14.1`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -39,7 +39,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetch succeeded — fetched version is older than `2026-06-14`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetch succeeded — fetched version is older than `2026-06-14.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -332,6 +332,8 @@ If Add security patterns: use the Edit tool to append the security section to th
 the existing file.
 If Leave it as-is: skip.
 
+After writing or updating `.gitignore`: tell the user "If VS Code's Source Control panel still shows files that should now be ignored, click the **refresh icon** (↺) at the top of the Source Control panel — VS Code doesn't always pick up .gitignore changes automatically."
+
 **Security-baseline `.gitignore` template:**
 
 ```
@@ -400,6 +402,24 @@ fly.toml
 htpasswd
 
 # ============================================================
+# Installed packages and dependencies (never commit these)
+# ============================================================
+
+node_modules/
+.venv/
+venv/
+env/
+.env/
+__pycache__/
+*.pyc
+.bundle/
+vendor/bundle/
+.gradle/
+build/
+dist/
+target/
+
+# ============================================================
 # Operating system files
 # ============================================================
 
@@ -434,6 +454,33 @@ desktop.ini
 #   temp/*
 #   !temp/.gitkeep
 ```
+
+### Clean up tracked-but-now-ignored files
+
+After writing or updating `.gitignore`, run:
+
+```bash
+git ls-files --cached --ignored --exclude-standard
+```
+
+If this returns any files: these were committed before the ignore rule existed and git is still tracking them. Tell the user which files were found.
+
+<mandatory>Call AskUserQuestion with:
+- Question: "The following files are now ignored but still tracked by git — they will keep showing up in your changes until removed from tracking: [list files]. Remove them from git tracking now? (The files themselves are not deleted — only git's record of them.)"
+- Options:
+  - "Yes — remove them from tracking (Recommended)"
+  - "No — I'll handle it myself"
+</mandatory>
+
+If yes:
+- bash/zsh: `git rm -r --cached [each path] && git commit -m "chore: stop tracking files now covered by .gitignore"`
+- PowerShell: run as two separate steps: `git rm -r --cached [each path]` then `git commit -m "chore: stop tracking files now covered by .gitignore"`
+
+If the command fails because there is no HEAD yet (fresh repo with no commits): skip the `git rm` — there is nothing tracked yet.
+
+If no: tell the user to run `git rm -r --cached [paths]` manually when ready, then commit.
+
+If the command returns no files: continue silently.
 
 ### Suite orientation
 

@@ -1,6 +1,6 @@
 # /vc-retro
 
-<!-- version: 2026-06-14 -->
+<!-- version: 2026-06-14.1 -->
 
 A time-based retrospective skill that reviews your git history for the period since your
 last retro (up to 31 days). Quantifies what shipped, identifies hotspot files, checks
@@ -23,7 +23,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 
 <output-handlers>
 
-**Fetch succeeded — `vc-retro` version matches `2026-06-14`**: proceed silently.
+**Fetch succeeded — `vc-retro` version matches `2026-06-14.1`**: proceed silently.
 
 **Fetch succeeded — newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -232,6 +232,8 @@ If no roadmap exists, note it plainly: work is shipping with no planning record 
 vs. a few large features; work concentrated in one area vs. spread across the codebase;
 consistent commit cadence vs. bursts. Describe what you see.
 
+**Carry-forward debt** — use the Glob tool to list all files matching `.vibe-check/vc-audit/*.md`. For each, scan for lines beginning with `D-` in the Deferred section. If any deferred findings exist, list them here: branch slug, finding ID, and description. If none exist, note "No deferred findings." This section is always present so debt doesn't silently disappear between retros.
+
 If **previous period data** is available (loaded in Phase 0), add a "Compared to last
 period" line under each relevant section showing the delta. For example:
 - Under **What shipped**: "Commits: 12 this period vs. 8 last period (+4)"
@@ -291,6 +293,12 @@ Before asking any Phase 3 questions, write a draft artifact using the Write tool
 ## Compared to last period
 
 [Phase 2 analysis, or omit section if no previous period data]
+
+---
+
+## Carry-forward debt
+
+[List of deferred findings from all audit artifacts, or "No deferred findings."]
 
 ---
 
@@ -425,6 +433,12 @@ running /vc-plan to start tracking work."]
 [Write only when previous period data was loaded in Phase 0. Format:
 "(vs. [previous retro date]: commits: +N, active days: +N, hotspot files: ±N, test ratio: ±N%)"
 If no previous period data is available, omit this section entirely.]
+
+---
+
+## Carry-forward debt
+
+[List of deferred findings from all audit artifacts — D-NNN (branch-slug): description — or "No deferred findings."]
 
 ---
 
