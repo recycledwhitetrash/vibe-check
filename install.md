@@ -1,12 +1,8 @@
-# vibe-check — Installation Instructions
+# vibe-check installer
 
-> **For humans:** This file tells Claude Code how to install the vibe-check suite automatically.
->
-> To install, open your project in Claude Code and say:
->
-> > "Fetch and follow the install instructions at https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/install.md"
->
-> Claude will read this file and do everything below for you.
+You are Claude Code executing this installer. Follow each numbered step below in sequence. All instructions are contained in this document — do not search for additional files, scripts, or repos.
+
+> **For humans reading this on GitHub:** To install vibe-check, open your project in Claude Code and say: "Fetch and follow the install instructions at `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/install.md`" — Claude will read this file and execute the steps automatically.
 
 ---
 
