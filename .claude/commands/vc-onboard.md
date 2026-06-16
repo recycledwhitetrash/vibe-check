@@ -1,6 +1,6 @@
 # /vc-onboard — Codebase Onboarding
 
-<!-- version: 2026-06-15.1 -->
+<!-- version: 2026-06-15.2 -->
 
 Run `/vc-onboard` once to embed the vibe-check suite into an existing project. It scans
 your codebase, breaks it into logical feature chunks, scaffolds git if needed, optionally
@@ -35,7 +35,7 @@ Read the JSON from stdout and check the `vc-onboard` entry.
 
 <output-handlers>
 
-**`vc-onboard` version matches `2026-06-15.1`**: proceed silently.
+**`vc-onboard` version matches `2026-06-15.2`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -460,10 +460,10 @@ Run the following to check the current git state:
 git rev-parse --show-toplevel 2>&1
 git log --oneline -1 2>&1
 git branch --show-current 2>&1
-git symbolic-ref refs/remotes/origin/HEAD
+git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null
 ```
 
-From the `git symbolic-ref` output: if it starts with `refs/remotes/origin/`, strip that prefix — the remainder is DEFAULT_BRANCH. If the command errored or returned empty (no remote configured, or remote HEAD not set), DEFAULT_BRANCH is unknown.
+From the `git symbolic-ref` output: if it starts with `refs/remotes/origin/`, strip that prefix — the remainder is DEFAULT_BRANCH. If the command returned empty: run `git remote set-head origin -a 2>/dev/null`, then re-run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it now returns a value, strip the prefix and use as DEFAULT_BRANCH. (Repos created with `git init` + push rather than `git clone` do not have this reference set locally.) If still empty (no remote configured), DEFAULT_BRANCH is unknown.
 
 <gate>Do not proceed until you have all four outputs and have determined DEFAULT_BRANCH.</gate>
 
