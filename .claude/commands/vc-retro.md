@@ -1,6 +1,6 @@
 # /vc-retro
 
-<!-- version: 2026-06-14.1 -->
+<!-- version: 2026-06-15.1 -->
 
 A time-based retrospective skill that reviews your git history for the period since your
 last retro (up to 31 days). Quantifies what shipped, identifies hotspot files, checks
@@ -17,15 +17,29 @@ Checks for updates on startup — a critical update will pause the run and promp
 
 ---
 
+## Local config
+
+Silently attempt to read `.vibe-check/vc-local.conf` using the Read tool. Do not report success or failure to the user.
+
+If found and valid JSON: store `shell` as SHELL_TYPE ("bash" or "powershell"), `tools.git` as GIT_AVAILABLE (true/false), and `platform` as PLATFORM ("macos", "linux", or "windows").
+
+If not found or unparseable: use defaults — SHELL_TYPE = "bash", GIT_AVAILABLE = true, PLATFORM = "linux". Run `/vc-bootstrap` to generate the file.
+
+---
+
 ## Version check
 
-Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/versions.json`. If the fetch fails or returns an error for any reason, skip this section entirely and proceed to Phase 0.
+Use the Bash tool to run: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/versions.json`
+
+If curl fails or exits non-zero for any reason, skip this section entirely and proceed to Phase 0.
+
+Read the JSON from stdout and check the `vc-retro` entry.
 
 <output-handlers>
 
-**Fetch succeeded — `vc-retro` version matches `2026-06-14.1`**: proceed silently.
+**`vc-retro` version matches `2026-06-15.1`**: proceed silently.
 
-**Fetch succeeded — newer version available, `critical` is false**:
+**Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
 - Question: "A newer version of /vc-retro is available. Proceed with your current version or update now."
 - Options:
@@ -35,7 +49,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 If Proceed: continue to Phase 0.
 If Update now: follow the **Auto-update** steps below, then stop.
 
-**Fetch succeeded — newer version available, `critical` is true**:
+**Newer version available, `critical` is true**:
 <mandatory>Call AskUserQuestion with:
 - Question: "A critical update is available for /vc-retro that fixes an important issue. Running the current version may produce incorrect results."
 - Options:
@@ -48,11 +62,13 @@ If Continue: proceed to Phase 0.
 </output-handlers>
 
 **Auto-update:**
-1. Run `git --version` to check whether git is installed. If git is not installed, skip the auto-update entirely and proceed to Phase 0 — git will be installed there first.
+1. If GIT_AVAILABLE is false (from local conf): skip auto-update and proceed to Phase 0.
 2. Run `git rev-parse --show-toplevel` to find the project root.
-3. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-retro.md`.
-4. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-retro.md`. Tell the user "Updated to the latest version. Please re-run /vc-retro." Do not continue.
-5. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
+3. Use the Bash tool to download and overwrite the skill file in one step:
+   - bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-retro.md -o "[project-root]/.claude/commands/vc-retro.md"`
+   - PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-retro.md -o "[project-root]/.claude/commands/vc-retro.md"`
+4. If curl exits 0: tell the user "Updated to the latest version. Please re-run /vc-retro." Do not continue.
+5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
 
@@ -60,15 +76,7 @@ If Continue: proceed to Phase 0.
 
 ## Phase 0 — Orientation
 
-Detect the current shell:
-
-```bash
-echo $SHELL
-```
-
-If the output is a path ending in `bash` or `zsh` (or similar Unix shell): use `&&` to chain
-commands throughout this skill. If the output is empty or does not match, you are likely in
-PowerShell — run each command as a separate sequential step instead of using `&&` chaining.
+Use SHELL_TYPE from local conf (read at startup). If the value is "powershell": run each command as a separate sequential step throughout this skill. Otherwise (default: "bash"): use `&&` to chain commands.
 
 ### Identify the current user
 

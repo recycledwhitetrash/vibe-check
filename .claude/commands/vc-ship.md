@@ -1,6 +1,6 @@
 # /vc-ship — Ship Flow
 
-<!-- version: 2026-06-15.6 -->
+<!-- version: 2026-06-15.8 -->
 
 Guides you through a safe push-and-PR flow for a feature branch. Before pushing, runs a
 gitleaks secret scan (hard stop on any detected secrets), a lint check, and test coverage
@@ -19,15 +19,29 @@ Checks for updates on startup — a critical update will pause the run and promp
 
 ---
 
+## Local config
+
+Silently attempt to read `.vibe-check/vc-local.conf` using the Read tool. Do not report success or failure to the user.
+
+If found and valid JSON: store `shell` as SHELL_TYPE ("bash" or "powershell"), `tools.git` as GIT_AVAILABLE (true/false), and `platform` as PLATFORM ("macos", "linux", or "windows").
+
+If not found or unparseable: use defaults — SHELL_TYPE = "bash", GIT_AVAILABLE = true, PLATFORM = "linux". Run `/vc-bootstrap` to generate the file.
+
+---
+
 ## Version check
 
-Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/versions.json`. If the fetch fails or returns an error for any reason, skip this section entirely and proceed to Phase 0.
+Use the Bash tool to run: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/versions.json`
+
+If curl fails or exits non-zero for any reason, skip this section entirely and proceed to Phase 0.
+
+Read the JSON from stdout and check the `vc-ship` entry.
 
 <output-handlers>
 
-**Fetch succeeded — `vc-ship` version matches `2026-06-15.6`**: proceed silently.
+**`vc-ship` version matches `2026-06-15.8`**: proceed silently.
 
-**Fetch succeeded — newer version available, `critical` is false**:
+**Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
 - Question: "A newer version of /vc-ship is available. Proceed with your current version or update now."
 - Options:
@@ -37,7 +51,7 @@ Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitet
 If Proceed: continue to Phase 0.
 If Update now: follow the **Auto-update** steps below, then stop.
 
-**Fetch succeeded — newer version available, `critical` is true**:
+**Newer version available, `critical` is true**:
 <mandatory>Call AskUserQuestion with:
 - Question: "A critical update is available for /vc-ship that fixes an important issue. Running the current version may produce incorrect results."
 - Options:
@@ -50,11 +64,13 @@ If Continue: proceed to Phase 0.
 </output-handlers>
 
 **Auto-update:**
-1. Run `git --version` to check whether git is installed. If git is not installed, skip the auto-update entirely and proceed to Phase 0 — git will be installed there first.
+1. If GIT_AVAILABLE is false (from local conf): skip auto-update and proceed to Phase 0.
 2. Run `git rev-parse --show-toplevel` to find the project root.
-3. Use the WebFetch tool to fetch `https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md`.
-4. If both succeed: use the Write tool to write the fetched content to `[project-root]/.claude/commands/vc-ship.md`. Tell the user "Updated to the latest version. Please re-run /vc-ship." Do not continue.
-5. If either fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
+3. Use the Bash tool to download and overwrite the skill file in one step:
+   - bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md -o "[project-root]/.claude/commands/vc-ship.md"`
+   - PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md -o "[project-root]/.claude/commands/vc-ship.md"`
+4. If curl exits 0: tell the user "Updated to the latest version. Please re-run /vc-ship." Do not continue.
+5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
 
@@ -90,15 +106,7 @@ waived by any phase-specific rule.
 
 ## Phase 0 — Orient to the branch
 
-Detect the current shell:
-
-```bash
-echo $SHELL
-```
-
-If the output is a path ending in `bash` or `zsh` (or similar Unix shell): use `&&` to chain
-commands throughout this skill. If the output is empty or does not match, you are likely in
-PowerShell — run each command as a separate sequential step instead of using `&&` chaining.
+Use SHELL_TYPE from local conf (read at startup). If the value is "powershell": run each command as a separate sequential step throughout this skill. Otherwise (default: "bash"): use `&&` to chain commands.
 
 ```bash
 git branch --show-current
@@ -256,15 +264,13 @@ noted in the review readiness table.
 
 ### A — Gitleaks (secret scan)
 
-```bash
-gitleaks version
-```
+Check TOOLS.gitleaks from local conf (read at startup).
 
 <output-handlers>
 
-**`gitleaks version` failed** (not installed):
+**TOOLS.gitleaks is false** (not installed):
 
-Run `uname -s` and `winget --version` to detect OS (same priority order as /vc-bootstrap: Darwin → macOS, Linux → Linux/WSL, neither + winget succeeds → Windows-native).
+Use PLATFORM from local conf to determine the install command.
 
 <mandatory>Call AskUserQuestion with:
 - Question: "Gitleaks is not installed. It scans your code for secrets like API keys and passwords before they reach GitHub. Install it now or skip the scan?"
@@ -289,7 +295,7 @@ If Install now:
 
 If Skip: note gitleaks as "not run" and proceed to Section B.
 
-**`gitleaks version` succeeded**: check whether `.gitleaks.toml` exists using the Read tool.
+**TOOLS.gitleaks is true** (installed): check whether `.gitleaks.toml` exists using the Read tool.
 
 If `.gitleaks.toml` does NOT exist:
 <mandatory>Call AskUserQuestion with:
@@ -444,7 +450,7 @@ Run: `ruff check .`
 
 **Go** (`go.mod` present):
 Tell the user: "golangci-lint is not installed."
-Detect OS and give the appropriate install command:
+Use PLATFORM from local conf to give the appropriate install command:
 - macOS: `brew install golangci-lint`
 - Linux / WSL: `curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin`
 - Windows: `winget install golangci-lint`
