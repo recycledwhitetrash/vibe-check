@@ -1,6 +1,6 @@
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-15.4 -->
+<!-- version: 2026-06-15.5 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -41,7 +41,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-15.4`**: proceed silently.
+**`vc-audit` version matches `2026-06-15.5`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -121,7 +121,7 @@ Run the following to understand what this branch actually changes:
 git branch --show-current
 git for-each-ref --format='%(refname:short)' refs/heads/
 git rev-parse HEAD~1
-git symbolic-ref refs/remotes/origin/HEAD
+git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null
 ```
 
 <gate>Do not proceed past this block until you have command output. Determine BASE_BRANCH and handle all edge cases before continuing:</gate>
@@ -150,7 +150,8 @@ git symbolic-ref refs/remotes/origin/HEAD
   - Re-read `git branch --show-current` to confirm CURRENT_BRANCH, then continue normally.
 - **Otherwise**: derive BASE_BRANCH using this priority chain:
   1. From the `git symbolic-ref refs/remotes/origin/HEAD` output: if it returned a value, strip the `refs/remotes/origin/` prefix directly — do not use shell utilities. Use the result as BASE_BRANCH.
-  2. If symbolic-ref returned empty or errored: look for a branch in the `git for-each-ref` output whose name is exactly `main`, `master`, or `develop` — partial matches do not count. Use the first match as BASE_BRANCH.
+  2. If step 1 returned nothing: run `git remote set-head origin -a 2>/dev/null` to fetch the remote HEAD, then re-run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it now returns output: strip the prefix and use as BASE_BRANCH. (Repos created with `git init` + push rather than `git clone` do not have this reference set locally — this step populates it.)
+  3. If no value yet: look for a branch in the `git for-each-ref` output whose name is exactly `main`, `master`, or `develop` — partial matches do not count. Use the first match as BASE_BRANCH.
 
 **In all subsequent git commands, substitute BASE_BRANCH with the value determined above.**
 
@@ -1499,7 +1500,7 @@ _none yet_
 1. Determine BASE_BRANCH using this priority order — stop at the first that succeeds:
    - **Audit artifact**: read `**Base branch:**` from the artifact header. Use that value.
    - **Roadmap**: use the Read tool to check `.vibe-check/vc-plan/roadmap.md`. If it exists and has a `**Base branch:**` line, use that value.
-   - **Derive**: run `git symbolic-ref refs/remotes/origin/HEAD`. If it returns a value, strip the `refs/remotes/origin/` prefix directly — do not use shell utilities. Otherwise run `git for-each-ref --format='%(refname:short)' refs/heads/` and identify the default branch (priority: `main` > `master` > `develop`). Then call AskUserQuestion — "I derived `[branch]` as the base branch for this audit. Is that correct?" — Options: "Yes — use [branch]" / "No — use a different branch (Other)". Use the confirmed or entered value as BASE_BRANCH.
+   - **Derive**: run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it returns a value, strip the `refs/remotes/origin/` prefix directly — do not use shell utilities. If it returns nothing: run `git remote set-head origin -a 2>/dev/null`, then re-run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it now returns a value, strip the prefix. If still nothing: run `git for-each-ref --format='%(refname:short)' refs/heads/` and identify the default branch (priority: `main` > `master` > `develop`). Then call AskUserQuestion — "I derived `[branch]` as the base branch for this audit. Is that correct?" — Options: "Yes — use [branch]" / "No — use a different branch (Other)". Use the confirmed or entered value as BASE_BRANCH.
 2. If the most recent pass entry in the pass log shows `— in progress`, that pass did not complete. Discard it and restart the pass from the beginning. Do not attempt to continue from where the pass left off — restart it entirely using the diff re-read below (or file re-read if FILE_READ_MODE — see below).
 3. Derive the current pass number, all open findings, and the clean pass count from the artifact. Do not rely on conversation memory. Also scan the entire artifact for the highest F-NNN number referenced anywhere — including in Resolved cross-references like `(was F-011)` and Deferred entries. Store this value as NEXT_F_NUM. All new findings in this pass must be numbered starting from NEXT_F_NUM + 1. Re-read the full surface map section from the artifact and store every surface listed — all of them must be walked this pass regardless of prior pass results.
 4. Read the `**Subagents:**` field from the artifact header. Do not ask the user about subagents again — this setting was recorded when the audit was created.

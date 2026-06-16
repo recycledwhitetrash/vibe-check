@@ -1,6 +1,6 @@
 # /vc-ship — Ship Flow
 
-<!-- version: 2026-06-15.8 -->
+<!-- version: 2026-06-15.9 -->
 
 Guides you through a safe push-and-PR flow for a feature branch. Before pushing, runs a
 gitleaks secret scan (hard stop on any detected secrets), a lint check, and test coverage
@@ -39,7 +39,7 @@ Read the JSON from stdout and check the `vc-ship` entry.
 
 <output-handlers>
 
-**`vc-ship` version matches `2026-06-15.8`**: proceed silently.
+**`vc-ship` version matches `2026-06-15.9`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -113,7 +113,7 @@ git branch --show-current
 git for-each-ref --format='%(refname:short)' refs/heads/
 git status --porcelain
 gh --version
-git symbolic-ref refs/remotes/origin/HEAD
+git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null
 ```
 
 <gate>Do not proceed until you have all five outputs.</gate>
@@ -155,7 +155,8 @@ Use the answer as BASE_BRANCH.
 **Otherwise**: derive BASE_BRANCH using this priority chain:
 
 1. From the `git symbolic-ref refs/remotes/origin/HEAD` output: if it returned a value, strip the `refs/remotes/origin/` prefix directly — do not use shell utilities. Use the result as BASE_BRANCH.
-2. If symbolic-ref returned empty or errored: identify all branches whose name is exactly `main`, `master`, or `develop` — partial matches do not count.
+2. If step 1 returned nothing: run `git remote set-head origin -a 2>/dev/null` to fetch the remote HEAD, then re-run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it now returns output: strip the prefix and use as BASE_BRANCH. (Repos created with `git init` + push rather than `git clone` do not have this reference set locally — this step populates it.)
+3. If no value yet: identify all branches whose name is exactly `main`, `master`, or `develop` — partial matches do not count.
 
 If step 2 produces exactly one match: note it as BASE_BRANCH.
 

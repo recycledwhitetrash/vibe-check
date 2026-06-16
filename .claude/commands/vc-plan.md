@@ -1,10 +1,9 @@
 # /vc-plan
 
-<!-- version: 2026-06-15.2 -->
+<!-- version: 2026-06-15.5 -->
 
 The project coordinator for your entire codebase. Run it before writing code to plan a
-feature, typically from your main branch to pick up the next thing to build, or when you're not sure
-what to build next and want help figuring it out.
+feature, to capture ideas before they slip away, or when you're not sure what to build next.
 
 For a single feature, it guides a structured conversation — scope calibration, status quo
 check, narrowest useful MVP, premise challenge, approaches, definition of done, risks, failure
@@ -14,7 +13,11 @@ with a copyable "Start here" instruction for Claude.
 For a large initiative or full project, it decomposes the scope into a feature roadmap,
 creates a plan stub for each feature, and coordinates the work across branches and sessions.
 
-Either way, every plan is registered in a living roadmap at `.vibe-check/vc-plan/roadmap.md`
+For brainstorming, it asks open-ended questions to help you surface what to build. Each idea
+can be planned immediately or saved to the roadmap as a backlog item — run it again later to
+pick up where you left off. Good for capturing a burst of ideas without committing to any one yet.
+
+Every plan and idea is registered in a living roadmap at `.vibe-check/vc-plan/roadmap.md`
 that tracks planning and build status across the whole project. The roadmap stores the project
 scope classification (internal vs. client-facing) and grows over time — new features are added
 as they are planned, branches are marked built when they ship.
@@ -43,7 +46,7 @@ Read the JSON from stdout and check the `vc-plan` entry.
 
 <output-handlers>
 
-**`vc-plan` version matches `2026-06-15.2`**: proceed silently.
+**`vc-plan` version matches `2026-06-15.5`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -127,9 +130,10 @@ From the output, identify the current branch name.
 
 Derive BASE_BRANCH using the following priority chain. Stop at the first step that returns a value:
 
-1. Run `git symbolic-ref refs/remotes/origin/HEAD`. If it returns output (e.g. `refs/remotes/origin/main`): strip the `refs/remotes/origin/` prefix directly — do not pipe through shell utilities. Use the result as BASE_BRANCH.
-2. Look for a branch in the `git for-each-ref` output whose name is exactly `main`, `master`, or `develop` — partial matches do not count. Use the first match as BASE_BRANCH.
-3. If neither step resolves BASE_BRANCH: use the handler below.
+1. Run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it returns output (e.g. `refs/remotes/origin/main`): strip the `refs/remotes/origin/` prefix directly — do not pipe through shell utilities. Use the result as BASE_BRANCH.
+2. If step 1 returned nothing: run `git remote set-head origin -a 2>/dev/null` to fetch the remote HEAD, then re-run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it now returns output: strip the prefix and use as BASE_BRANCH. (Repos created with `git init` + push rather than `git clone` do not have this reference set locally — this step populates it.)
+3. Look for a branch in the `git for-each-ref` output whose name is exactly `main`, `master`, or `develop` — partial matches do not count. Use the first match as BASE_BRANCH.
+4. If no step resolves BASE_BRANCH: use the handler below.
 
 Store the resolved value as BASE_BRANCH — this is the branch all features branch from throughout this skill.
 
@@ -256,12 +260,11 @@ If the roadmap exists: look for a `**Base branch:**` line in the header.
 **Roadmap exists and has unbuilt features** (Progress table rows where `Built` is not `✓`):
 <mandatory>Call AskUserQuestion with:
 - Question: "You are on [branch name]. What would you like to do?"
-- Options: one option per unbuilt feature using its Branch slug as the label with its current
-  Plan status in parentheses — e.g. "user-auth (stub)" or "workspace-ui (final)". Add two
-  final options: "Start a new plan — this is not part of the roadmap" and "Help me figure
-  out what to build next — I want to brainstorm"
+- Options: one option per unbuilt feature. For features with a branch slug, use the slug as the label with the Plan status in parentheses — e.g. "user-auth (stub)" or "workspace-ui (final)". For `idea`-status features (no branch yet), use the feature name as the label with "(idea)" — e.g. "Playlist Sync (idea)". Add two final options: "Start a new plan — this is not part of the roadmap" and "Help me figure out what to build next — I want to brainstorm"
 </mandatory>
-If the user picks a roadmap feature: run `git branch --list "[selected-slug]"`.
+If the user picks an `idea`-status feature: treat it as "Start a new plan" but pre-load the feature name as the starting problem statement — skip Phase 1's opening question and proceed directly to Phase 2 with that name as context.
+
+If the user picks a roadmap feature with a branch: run `git branch --list "[selected-slug]"`.
 
 If the branch already exists:
 <mandatory>Call AskUserQuestion with:
@@ -405,7 +408,40 @@ a full interrogation. Good starting questions depending on context:
 Once the user lands on a concrete idea: confirm it back in one sentence —
 "So you want to build [X] — [brief description]. Does that capture it?"
 
-Wait for confirmation, then continue to Phase 1 with that as the starting problem statement.
+Wait for confirmation, then:
+
+<mandatory>Call AskUserQuestion with:
+- Question: "Plan this now or save it to the backlog and brainstorm more?"
+- Options:
+  - "Plan it now — let's go"
+  - "Save it for later — brainstorm another idea"
+</mandatory>
+
+**If "Plan it now":** continue to Phase 1 with the confirmed idea as the starting problem statement.
+
+**If "Save it for later":**
+
+Derive a short feature name from the idea (3–5 words, title-cased). Check whether `.vibe-check/vc-plan/roadmap.md` exists using the Read tool.
+
+If the roadmap exists and has a `## Features` table: read the current Features table, identify the highest row number, and use the Edit tool to append:
+- Features row: `| [next #] | [feature name] | idea | — | — | — |`
+- Progress row: `| [feature name] | idea | — | — |`
+
+If the roadmap exists but has no `## Features` table: use the Edit tool to append the Features, Progress, and How-to-work sections (same format as Phase 2's "roadmap exists but no Features table" handler), using `idea` as the Plan status and `—` for Branch and Plan stub.
+
+If no roadmap exists: use the Write tool to create `.vibe-check/vc-plan/roadmap.md` with the full template from Phase 2, using `idea` as the Plan status and `—` for Branch and Plan stub.
+
+Tell the user: "Saved **[feature name]** to your backlog."
+
+<mandatory>Call AskUserQuestion with:
+- Question: "Brainstorm another idea?"
+- Options:
+  - "Yes — keep going"
+  - "No — I'm done for now"
+</mandatory>
+
+If "Yes": loop back to the opening brainstorm question ("Are you thinking of a new feature...") and repeat.
+If "No": tell the user their backlog ideas are saved in `.vibe-check/vc-plan/roadmap.md` and will appear as options next time they run `/vc-plan` from their main branch. Stop.
 
 </phase>
 
@@ -837,10 +873,7 @@ plans finalize and branches ship.
 
 ### Codebase check
 
-Before generating approaches, check whether any of this already exists. Use the Grep
-and Glob tools to search the codebase for existing code related to the problem — look
-for file names, function names, class names, or patterns that suggest related
-functionality.
+Before generating approaches, check whether any of this already exists. Derive 3–5 specific search terms from the problem description — function names, class names, route paths, or domain keywords (e.g. "auth", "session", "UserModel"). Use the Grep tool to search for each term specifically. Do not use broad globs or scan directory trees. Read at most 3 of the most relevant matching files — enough to understand what exists, not a full codebase survey.
 
 If the codebase is empty or this is a brand new project: skip this check and note
 "New project — no existing code to check."
