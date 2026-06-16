@@ -1,6 +1,6 @@
 # /vc-ship — Ship Flow
 
-<!-- version: 2026-06-15.9 -->
+<!-- version: 2026-06-16.1 -->
 
 Guides you through a safe push-and-PR flow for a feature branch. Before pushing, runs a
 gitleaks secret scan (hard stop on any detected secrets), a lint check, and test coverage
@@ -529,7 +529,7 @@ Jest unless PKG_MANAGER is `bun`) to install and configure a framework, then run
 If Other: ask the user what coverage command to run. If they cannot provide one, note
 "tests — not configured" and proceed to Phase 3.
 
-**If test tooling is found**: run the coverage command per the detection above. After running, check whether a `coverage/` or `.nyc_output/` directory was created anyway (run `ls coverage/ 2>/dev/null || ls .nyc_output/ 2>/dev/null`). If either exists, add `coverage/` and `.nyc_output/` to `.gitignore` now (check first with the Read tool to avoid duplicates), then tell the user: "Added `coverage/` to .gitignore — coverage reports will no longer appear as untracked files."
+**If test tooling is found**: run the coverage command per the detection above. After running, use the Read tool to check whether `.gitignore` already contains `coverage/`. If it does not, run `ls coverage/ 2>/dev/null || ls .nyc_output/ 2>/dev/null` to check whether a directory was created. If either directory exists, add `coverage/` and `.nyc_output/` to `.gitignore` now, then tell the user: "Added `coverage/` to .gitignore — coverage reports will no longer appear as untracked files." If `.gitignore` already has `coverage/`, skip this check entirely.
 
 **If no test tooling is found**: detect the project stack and set it up before running.
 

@@ -1,11 +1,11 @@
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-15.5 -->
+<!-- version: 2026-06-16.7 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
-every applicable lens. After each pass an optional adversarial subagent reviews the diff
-independently to catch what the structured walk missed.
+every applicable lens. During each pass an optional adversarial subagent runs in the
+background in parallel with the structured walk and is collected at the end of the pass.
 
 The skill loops until you declare convergence (two consecutive clean passes with zero open findings). Each session
 produces one artifact (scoped runs get their own separate artifact) that accumulates all
@@ -1412,9 +1412,9 @@ If "Continue from where I stopped": proceed as if Status were IN PROGRESS.
 **If the artifact does not exist:** Before creating it, ask about subagent configuration:
 
 <mandatory>Call AskUserQuestion with:
-- Question: "Run an adversarial subagent after each pass? After the main structured walk completes, a second agent with no prior context reviews the diff and artifact — its only job is finding failure modes the main walk missed. Especially recommended on large or security-sensitive branches. Adds time to each pass."
+- Question: "Run an adversarial subagent in parallel with each pass? It launches in the background at the start of the walk — a second agent with no prior context reads the same diff, looking only for failure modes the structured walk missed. Results are collected at the end of the pass. Especially recommended on large or security-sensitive branches. Adds time to each pass."
 - Options:
-  - "Yes — run adversarial subagent after each pass"
+  - "Yes — run adversarial subagent in parallel"
   - "No — main walk only"
 </mandatory>
 
@@ -1501,8 +1501,8 @@ _none yet_
    - **Audit artifact**: read `**Base branch:**` from the artifact header. Use that value.
    - **Roadmap**: use the Read tool to check `.vibe-check/vc-plan/roadmap.md`. If it exists and has a `**Base branch:**` line, use that value.
    - **Derive**: run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it returns a value, strip the `refs/remotes/origin/` prefix directly — do not use shell utilities. If it returns nothing: run `git remote set-head origin -a 2>/dev/null`, then re-run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it now returns a value, strip the prefix. If still nothing: run `git for-each-ref --format='%(refname:short)' refs/heads/` and identify the default branch (priority: `main` > `master` > `develop`). Then call AskUserQuestion — "I derived `[branch]` as the base branch for this audit. Is that correct?" — Options: "Yes — use [branch]" / "No — use a different branch (Other)". Use the confirmed or entered value as BASE_BRANCH.
-2. If the most recent pass entry in the pass log shows `— in progress`, that pass did not complete. Discard it and restart the pass from the beginning. Do not attempt to continue from where the pass left off — restart it entirely using the diff re-read below (or file re-read if FILE_READ_MODE — see below).
-3. Derive the current pass number, all open findings, and the clean pass count from the artifact. Do not rely on conversation memory. Also scan the entire artifact for the highest F-NNN number referenced anywhere — including in Resolved cross-references like `(was F-011)` and Deferred entries. Store this value as NEXT_F_NUM. All new findings in this pass must be numbered starting from NEXT_F_NUM + 1. Re-read the full surface map section from the artifact and store every surface listed — all of them must be walked this pass regardless of prior pass results.
+2. If the most recent pass entry in the pass log shows `— in progress`, that pass did not complete — most likely due to context compaction. Check the artifact for a `## Pass N progress` section immediately following that marker (N = the in-progress pass number). If found: read the `[x]`/`[ ]` markers — `[x]` surfaces were already walked and their findings are already written to the artifact; `[ ]` surfaces were not. Store the `[ ]` surfaces as REMAINING_SURFACES. Note whether `subagent:` shows `dispatched` or `pending`. If `## Pass N progress` is not found (compaction happened before the section was written): restart the pass from the beginning.
+3. Derive the current pass number, all open findings, and the clean pass count from the artifact. Do not rely on conversation memory. Also scan the entire artifact for the highest F-NNN number referenced anywhere — including in Resolved cross-references like `(was F-011)` and Deferred entries. Store this value as NEXT_F_NUM. All new findings in this pass must be numbered starting from NEXT_F_NUM + 1. Re-read the full surface map section from the artifact and store every surface listed. If resuming from a `## Pass N progress` section (step 2 above), only the `[ ]` surfaces (REMAINING_SURFACES) need to be walked this session — `[x]` surfaces are already complete.
 4. Read the `**Subagents:**` field from the artifact header. Do not ask the user about subagents again — this setting was recorded when the audit was created.
 5. Re-derive FILE_READ_MODE: check whether `git diff BASE_BRANCH...HEAD --shortstat` is empty AND the plan stub at `.vibe-check/vc-plan/[branch-slug].md` contains a `## Chunk files` section. If both are true, FILE_READ_MODE = true.
 
@@ -1520,35 +1520,40 @@ Replace this with the full pass log entry (per Phase 5) when the pass completes.
 
 </mandatory>
 
-**Before walking any surface, re-read the audit scope for this pass:**
+**If this is a new pass** (no `## Pass N progress` section was found in the recovery step): immediately append a `## Pass N progress` section to the artifact, right after the `### Pass N — in progress` line. List every surface from the surface map, one line each, in the same order. Use this format:
 
-**If FILE_READ_MODE is true** (set in Phase 0 — empty diff and plan stub has `## Chunk files`):
-Use the Read tool to read every file listed in the plan stub's `## Chunk files` section.
-Apply sensitive file protection — skip any file matching the patterns in the Sensitive File
-Protection section. Use these file contents as the audit surface for this pass. Do not run
-the git diff block below.
-
-If the Read tool returns an error for any file in the chunk list, stop immediately and report:
-"Could not read `[filename]` listed in the plan stub. Verify the file exists at that path.
-If the file was moved or renamed, update the `## Chunk files` section in the plan stub at
-`.vibe-check/vc-plan/[branch-slug].md`, then re-run /vc-audit." Do not continue the pass
-with missing files — a coverage gap at this stage is undetected, not clean.
-
-If any file read returned exactly 2000 lines, it may be truncated. Re-read it with `offset: 2000` to retrieve the remainder. Continue re-reading with increasing offsets (4000, 6000, …) until a read returns fewer than 2000 lines. Concatenate all parts as the complete file content before walking.
-
-<gate>If FILE_READ_MODE: do not proceed until you have successfully read all chunk files from the plan stub (including any truncated continuations).</gate>
-
-**Otherwise — re-read the full branch diff:**
-
-```bash
-git diff BASE_BRANCH...HEAD -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions — re-run `git ls-files --cached --ignored --exclude-standard` to get these]
+```markdown
+## Pass N progress
+subagent: pending
+- [ ] [Surface name] — [file1.ts file2.ts ...]
+- [ ] [Surface name] — [file3.ts]
 ```
 
-Substitute BASE_BRANCH with the base branch identified in Phase 0. For an initial commit session, substitute `4b825dc642cb6eb9a060e54bf8d69288fbee4904`. If `$ARGUMENTS` was provided, append all scope paths after the sensitive file exclusions.
+For each surface, list the file paths associated with it from the surface map (space-separated after `—`). If FILE_READ_MODE is true, list the chunk file path instead. Set `subagent:` to `pending` if `**Subagents:** enabled` in the artifact header, otherwise `disabled`.
 
-<gate>Execute this block before walking any surface. Do not proceed until you have the diff output. The scope of every pass is the full branch diff — never "changes since the last pass," never "what I changed this pass," never from memory.</gate>
+**If this is a resumed pass** (REMAINING_SURFACES loaded from `## Pass N progress` in the recovery step): do not rewrite it. Use the existing section as-is.
 
-**If `**Subagents:** enabled` in the artifact header:** Dispatch the adversarial subagent now in the background using the Agent tool with `run_in_background: true`, so it analyzes the diff in parallel while the main walk runs. Use the same subagent prompt from the Adversarial pass section below, but omit the "do not repeat open findings" instruction — the subagent runs before Phase 5 writes findings, so deduplication happens at Phase 6 when results are collected. Store a note that the background subagent was dispatched this pass.
+**Dispatch the adversarial subagent** if `**Subagents:** enabled` AND the `subagent:` line in `## Pass N progress` shows `pending`: dispatch now using the Agent tool with `run_in_background: true`. Use the subagent prompt from the Adversarial pass section below, omitting the "do not repeat open findings" instruction — the subagent reads the full branch diff itself; deduplication happens at Phase 6 when results are collected. Immediately update the `subagent:` line in `## Pass N progress` to `dispatched`.
+
+**Walk each surface one at a time.** For each `[ ]` surface in `## Pass N progress` (in order from top to bottom):
+
+**Step 1 — Sensitive file check.** If the surface file(s) match any pattern in the Sensitive File Protection section, skip the diff and record a finding per the Sensitive File Protection rules. Use the Edit tool to mark the surface `[x]` in `## Pass N progress`. Move to the next surface.
+
+**Step 2 — Load only this surface's scope:**
+
+If FILE_READ_MODE is false (normal diff-based audit):
+```bash
+git diff BASE_BRANCH...HEAD -- [file paths for this surface]
+```
+Substitute BASE_BRANCH. For an initial commit session, substitute `4b825dc642cb6eb9a060e54bf8d69288fbee4904`. If `$ARGUMENTS` was provided, verify the surface files fall within the requested scope — if a surface file is outside the requested scope, mark it `[x]` and skip it.
+
+If FILE_READ_MODE is true: use the Read tool to read the chunk file for this surface. If the Read tool returns an error, stop and report: "Could not read `[filename]` — verify the file exists. If moved or renamed, update `## Chunk files` in the plan stub and re-run /vc-audit." If the file returns exactly 2000 lines, re-read with increasing offsets (2000, 4000, …) until a read returns fewer than 2000 lines. Concatenate all parts as the complete file content.
+
+<gate>Do not walk this surface until you have its diff output or file content in context. Load only this surface — not the full branch diff.</gate>
+
+**Step 3 — Walk all selected lenses** against this surface. Follow the walk rules below. Follow dependencies into other files using the Read tool as required by the threat model.
+
+**Step 4 — After completing this surface:** use the Edit tool to replace `- [ ] [Surface name]` with `- [x] [Surface name]` in `## Pass N progress`. Confirm the update before moving to the next surface.
 
 <walk-rules>
 
@@ -1556,6 +1561,8 @@ Walk every surface in the surface map against every selected lens. These rules a
 every pass, every time. **If FILE_READ_MODE is true, substitute "the chunk file contents"
 for all references to "the diff" or "the branch diff" in these rules** — the chunk files
 are the audit surface, not a diff.
+
+**Permitted tools during the walk:** Read (for following dependencies), Edit/Write (for writing findings to the artifact and updating `## Pass N progress`), AskUserQuestion (for user decisions), and Agent (for the adversarial subagent). The only Bash commands permitted are the `git diff` surface-scoping commands specified above, and `git ls-files` if needed to resolve gitignored exclusions. Do not invoke interpreters (node, python, ruby, php, etc.) or run ad-hoc shell scripts to process data — all analysis happens in Claude's reasoning, not in a shell.
 
 - Walk **attack vectors and failure paths end-to-end**, not files in isolation. For each
   surface ask: what does a caller with no elevated privilege get to do through each interface?
@@ -1574,7 +1581,7 @@ are the audit surface, not a diff.
 - **Before recording any finding, quote the specific lines of code that motivate it.**
   If you cannot quote the lines directly from the diff or from a Read tool result, the finding
   is unverified and must be assigned confidence ≤4 (not added to Open). Do not work around
-  this by assigning 5–6 to unquoted findings.
+  this by assigning 5–6 to unquoted findings. Do not run code to simulate or verify a finding — if the issue is not evident from reading the code, use the Read tool to pull in more context, not a shell interpreter.
 - **Record each finding in the artifact immediately when discovered.** Do not accumulate
   findings in memory and batch them for Phase 5. Write each F-NNN to the artifact as you
   find it, using the Write or Edit tool. After each write, use the Read tool to verify the
@@ -1599,7 +1606,7 @@ are the audit surface, not a diff.
 
 </walk-rules>
 
-**Coverage gate:** Before proceeding to Phase 5, re-read the surface map from the artifact and count every surface listed. Verify you produced at least one file:line citation for each surface this pass. If any surface has no citation, walk it now. Do not proceed to Phase 5 with any surface uncovered — an incomplete pass is not a clean pass, regardless of finding count.
+**Coverage gate:** Before proceeding to Phase 5, read `## Pass N progress` from the artifact and verify every surface is marked `[x]`. If any surface is still `[ ]`, walk it now following the steps above. Do not proceed to Phase 5 with any `[ ]` surface remaining — an incomplete pass is not a clean pass, regardless of finding count.
 
 </phase>
 
@@ -1611,6 +1618,8 @@ are the audit surface, not a diff.
 
 After each pass, update the artifact in place. The artifact accumulates across passes —
 do not create a new file per pass.
+
+**First: remove the `## Pass N progress` section.** Use the Read tool to find the exact content of the section (from the `## Pass N progress` line through the last `- [x]` surface line). Use the Edit tool to replace that entire block with an empty string. Confirm it is gone before continuing — this section is transient walk-tracking state and must not persist in the completed pass record.
 
 Add the following block at the **end of the artifact file**. Use the Read tool first to find the current last line of the artifact, then use the Edit tool with that last line as the `old_string` anchor so the new pass entry is added after it. Do not insert after an earlier pass entry — always anchor to the actual end of the file.
 
@@ -1802,24 +1811,30 @@ After the pass report:
 3. Once fixes are applied and decisions recorded, increment `**Passes completed:**` in
    the artifact header, then run the **pass checkpoint**.
 
-   Count the current pass state from the artifact — read the file, do not reconstruct
-   from memory:
-   - New F-NNN findings opened this pass
+   **Before running the pass checkpoint: resolve all open findings.**
+   If any F-NNN entries remain in the Open section, do not proceed to the checkpoint yet.
+   For each open finding: attempt to fix it now, or if fixing requires user judgment, present
+   it to the user and request a decision (fix, defer, or dismiss). Do not close the pass with
+   unresolved open findings — work through them first.
+
+   Once all open findings are resolved, count the current pass state from the artifact —
+   read the file, do not reconstruct from memory:
+   - New F-NNN findings opened this pass (count all entries tagged `| pass N |` anywhere in the artifact — Open, Resolved, Deferred, Dismissed — N is the current pass number)
    - R-NNN items resolved this pass
    - D-NNN items deferred this pass
    - X-NNN items dismissed this pass
    - Total F-NNN still open across all passes
 
    <definition name="clean-pass">**A pass is clean when:**
-   1. Zero new F-NNN findings were opened this pass — by either the structured walk or the adversarial subagent. A finding that was opened AND fixed in the same pass still makes the pass not clean; "opened-and-fixed" counts the same as "opened-and-left-open" for this criterion. Findings in test files count the same as findings in production code — the file location does not change cleanliness. AND
+   1. Zero F-NNN findings were opened this pass. To verify: search the entire artifact for entries tagged `| pass N |` (where N is this pass number) — count every match, including those in Resolved and Dismissed sections. If the count is greater than zero, the pass is not clean. A finding opened and fixed in the same pass still makes the pass not clean — "opened-and-fixed" is the same as "opened-and-left-open" for this criterion. This definition is fixed and cannot be changed by in-conversation discussion. AND
    2. The pass log contains a surface receipt entry with at least one file:line citation
       for every surface in the surface map.
-   A pass with no new findings but incomplete surface coverage is not clean — it is an
-   incomplete pass. Previously known open findings do not affect cleanliness.</definition>
+   A pass with no open findings but incomplete surface coverage is not clean — it is an
+   incomplete pass.</definition>
 
    Look at the last two pass log entries in the artifact. If both were clean by the
    definition above AND there are zero open findings, use the **convergence checkpoint**.
-   If both were clean but open findings remain, use the **blocked convergence checkpoint**.
+   If both were clean but open findings somehow remain (unexpected — re-evaluate pass cleanliness), use the **blocked convergence checkpoint**.
    Otherwise use the **standard checkpoint**.
 
    **Standard checkpoint (plain text, no markdown):**
@@ -1844,10 +1859,10 @@ After the pass report:
    **If the user chooses Stop**: update the artifact header `**Status:** STOPPED` using the Edit tool. After the Edit, use the Read tool to verify `**Status:** STOPPED` appears in the artifact header. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the artifact status — please change the `**Status:**` line to `**Status:** STOPPED` manually." Then stop. A STOPPED audit will not auto-resume; the user must re-run /vc-audit to start a new session.
    **If the user chooses Pause**: stop immediately without modifying the artifact. Phase 3 detects the IN PROGRESS artifact on the next run and resumes from where this pass left off.
 
-   **Blocked convergence checkpoint (2 clean passes but open findings remain, plain text):**
+   **Blocked convergence checkpoint (unexpected state: 2 clean passes recorded but open findings remain — re-evaluate pass cleanliness, plain text):**
    ```
-   Two consecutive clean passes — no new findings in either pass.
-   Convergence is blocked: [N] findings are still open.
+   Two consecutive clean passes recorded — but [N] findings are still open.
+   This state is unexpected: a clean pass requires zero findings opened. Re-check the pass logs.
 
    Every open finding must be fixed, deferred, or dismissed before convergence can be declared.
    Review the open findings in the artifact and take action on each one, then continue.
@@ -1881,11 +1896,13 @@ After the pass report:
    was comprehensive (one entry per changed file) and that each receipt entry cited actual
    line numbers — not just a surface name with no evidence.
 
-   <mandatory>Call AskUserQuestion with the following question text and options. Do not declare convergence or update the artifact until the user explicitly selects "Declare convergence."
+   <gate>You have detected two consecutive clean passes and zero open findings. You may NOT declare convergence yourself — not in text, not by updating the artifact. The only valid convergence declaration is the user explicitly selecting "Declare convergence" from the AskUserQuestion call below. Do not proceed past this gate without calling AskUserQuestion.</gate>
+
+   <mandatory>Call AskUserQuestion with the following question text and options. Stop and wait for the user's selection before taking any further action.
 
    Question text (plain text — fill in the brackets):
    ```
-   Two consecutive clean passes — no new findings in either pass.
+   Two consecutive clean passes — no findings opened in either pass.
    All findings resolved, deferred, or dismissed.
 
    Total: [N] resolved · [N] deferred · [N] dismissed
@@ -1901,16 +1918,19 @@ After the pass report:
    - **Pause** — Stop here; resume later by running /vc-audit again
    </mandatory>
 
-   **If the user declares convergence**, update the artifact header:
+   **Only if the user selects "Declare convergence"**, update the artifact header using two Edit calls:
 
-   ```markdown
-   **Status:** CONVERGED
-   **Converged:** [date]
-   **Passes completed:** [N — must match the counter already in the header]
-   **Findings:** [N] open | [N] resolved | [N] deferred | [N] dismissed
-   ```
+   **Edit 1** — Replace the existing `**Status:**` line in place. Use the Edit tool with:
+   - old_string: `**Status:** IN PROGRESS`
+   - new_string: `**Status:** CONVERGED`
 
-   After the Edit, use the Read tool to verify `**Status:** CONVERGED` appears in the artifact header. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the artifact status — please change the `**Status:**` line to `**Status:** CONVERGED` and update the other header fields manually."
+   **Edit 2** — Insert `**Converged:**` and `**Findings:**` lines immediately after the `**Status:** CONVERGED` line. Use the Edit tool with:
+   - old_string: `**Status:** CONVERGED`
+   - new_string: `**Status:** CONVERGED\n**Converged:** [date]\n**Findings:** [N] open | [N] resolved | [N] deferred | [N] dismissed`
+
+   Do not add a new `**Passes completed:**` line — it already exists in the header and must not be duplicated. Do not append any of these lines to the end of the artifact.
+
+   After both Edits, use the Read tool to verify the artifact header contains exactly one `**Status:** CONVERGED` line and no `**Status:** IN PROGRESS` line. If it does not, re-attempt the failed Edit once. If it still fails, tell the user: "Could not update the artifact status — please change the `**Status:**` line to `**Status:** CONVERGED` and add `**Converged:** [date]` and `**Findings:** [N] open | [N] resolved | [N] deferred | [N] dismissed` manually."
 
    **If the user chooses Pause**, stop immediately — do not run another pass. Phase 3 will detect the existing artifact on the next run and resume from where this pass left off.
 
