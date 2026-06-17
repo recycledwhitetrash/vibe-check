@@ -1,6 +1,6 @@
 # /vc-plan
 
-<!-- version: 2026-06-16.2 -->
+<!-- version: 2026-06-17.1 -->
 
 The project coordinator for your entire codebase. Run it before writing code to plan a
 feature, to capture ideas before they slip away, or when you're not sure what to build next.
@@ -46,7 +46,7 @@ Read the JSON from stdout and check the `vc-plan` entry.
 
 <output-handlers>
 
-**`vc-plan` version matches `2026-06-15.5`**: proceed silently.
+**`vc-plan` version matches `2026-06-17.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -68,6 +68,8 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed.
 
+**Fetched version is older than `2026-06-17.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+
 </output-handlers>
 
 **Auto-update:**
@@ -76,7 +78,7 @@ If Continue: proceed.
 3. Use the Bash tool to download and overwrite the skill file in one step:
    - bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-plan.md -o "[project-root]/.claude/commands/vc-plan.md"`
    - PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-plan.md -o "[project-root]/.claude/commands/vc-plan.md"`
-4. If curl exits 0: tell the user "Updated to the latest version. Please re-run /vc-plan." Do not continue.
+4. If curl exits 0: tell the user "Updated to the latest version — reloading skill from disk." Then use the Read tool to read `[project-root]/.claude/commands/vc-plan.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete.
 5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---

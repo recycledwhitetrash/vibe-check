@@ -1,6 +1,6 @@
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-16.10 -->
+<!-- version: 2026-06-17.2 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -41,7 +41,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-15.5`**: proceed silently.
+**`vc-audit` version matches `2026-06-17.2`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -63,6 +63,8 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
+**Fetched version is older than `2026-06-17.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+
 </output-handlers>
 
 **Auto-update:**
@@ -71,7 +73,7 @@ If Continue: proceed to Phase 0.
 3. Use the Bash tool to download and overwrite the skill file in one step:
    - bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-audit.md -o "[project-root]/.claude/commands/vc-audit.md"`
    - PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-audit.md -o "[project-root]/.claude/commands/vc-audit.md"`
-4. If curl exits 0: tell the user "Updated to the latest version. Please re-run /vc-audit." Do not continue.
+4. If curl exits 0: tell the user "Updated to the latest version — reloading skill from disk." Then use the Read tool to read `[project-root]/.claude/commands/vc-audit.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete.
 5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
@@ -172,21 +174,27 @@ git log BASE_BRANCH...HEAD --oneline
 git diff BASE_BRANCH...HEAD --stat
 git diff BASE_BRANCH...HEAD --name-only -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
 git diff BASE_BRANCH...HEAD --shortstat -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
+git status --porcelain
 ```
 
 <gate>Do not proceed past this block until you have command output.</gate>
 
 From the output above:
 - Scan the `--name-only` file list for stack indicators (package managers, config/infra files, Supabase paths, scripts, ETL patterns, AI/MCP patterns) — these drive lens selection in Phase 1.
+- Parse `git status --porcelain` output: filter out any line whose path starts with `.vibe-check/` or `.claude/`. From the remaining lines store:
+  - UNCOMMITTED_TRACKED: paths from lines with `M`, `A`, or `R` prefix (staged or unstaged tracked changes). Apply the same sensitive file exclusions as the `--name-only` command above.
+  - UNTRACKED_FILES: paths from `??` lines, applying the same sensitive file exclusions. These are new files never added to git — no diff exists; the walk will use the Read tool for them.
 - **`--name-only` returned zero files but `git diff BASE_BRANCH...HEAD --stat` (unfiltered, run above) showed files**: all changed files on this branch were excluded from audit (sensitive credentials, build artifacts, or gitignored paths). Run `git diff BASE_BRANCH...HEAD --name-only` (no exclusions) to get the full list. Then:
   1. Create a high-severity finding for each file returned: `F-NNN | high (9/10) | [filename] — sensitive or excluded file modified on this branch; contents not audited; review manually before shipping.`
   2. Write these findings to the audit artifact (create it first if it doesn't exist, using the Phase 3 template).
   3. Tell the user: "All changes on this branch are in files excluded from audit (sensitive credentials or build artifacts). Review the files listed in the artifact manually before shipping." Stop.
-- **`--shortstat` is empty** (zero files changed vs BASE_BRANCH) **AND current branch is not the default branch**: check whether a plan stub exists at `.vibe-check/vc-plan/[branch-slug].md` and contains a `## Chunk files` section.
-  - If plan stub with `## Chunk files` found and the section lists at least one file path: set FILE_READ_MODE = true. Note the file list from that section — this branch was set up by `/vc-onboard` and the audit will scan those files directly rather than a diff. Tell the user: "No changes detected vs [BASE_BRANCH]. A chunk file list was found in the plan stub — scanning chunk files directly instead of a diff." Proceed directly to Phase 1 using the chunk file extensions and paths for stack detection — skip the diff read and plan context check below.
-  - If plan stub with `## Chunk files` found but the section is empty (no file paths listed): tell the user "The `## Chunk files` section in the plan stub is empty — nothing to audit in FILE_READ_MODE. Check the plan stub at `.vibe-check/vc-plan/[branch-slug].md` and ensure the section lists the files this branch covers." Stop.
-  - If no plan stub or no `## Chunk files` section: tell the user "No changes detected vs [BASE_BRANCH] and no chunk file list was found. There is nothing to audit on this branch yet — make some changes first, then re-run /vc-audit." Stop.
-- Read the `--shortstat` line: if files changed > 15 or insertions > 800, this is a **LARGE_DIFF** — call AskUserQuestion: "This branch touches N files / ~M lines, which may be too large to fully audit in one context window. How would you like to proceed?"
+- **`--shortstat` is empty** (zero committed files changed vs BASE_BRANCH) **AND current branch is not the default branch**:
+  - If UNCOMMITTED_TRACKED or UNTRACKED_FILES is non-empty: real work is in progress. Run `git diff BASE_BRANCH --shortstat [same exclusions]` and use that count for the LARGE_DIFF check below. Tell the user: "No commits on this branch yet — [N] uncommitted file(s) detected. Auditing working tree changes vs [BASE_BRANCH]." Proceed.
+  - If both are empty: check whether a plan stub exists at `.vibe-check/vc-plan/[branch-slug].md` and contains a `## Chunk files` section.
+    - If plan stub with `## Chunk files` found and the section lists at least one file path: set FILE_READ_MODE = true. Note the file list from that section — this branch was set up by `/vc-onboard` and the audit will scan those files directly rather than a diff. Tell the user: "No changes detected vs [BASE_BRANCH]. A chunk file list was found in the plan stub — scanning chunk files directly instead of a diff." Proceed directly to Phase 1 using the chunk file extensions and paths for stack detection — skip the diff read and plan context check below.
+    - If plan stub with `## Chunk files` found but the section is empty (no file paths listed): tell the user "The `## Chunk files` section in the plan stub is empty — nothing to audit in FILE_READ_MODE. Check the plan stub at `.vibe-check/vc-plan/[branch-slug].md` and ensure the section lists the files this branch covers." Stop.
+    - If no plan stub or no `## Chunk files` section: tell the user "No changes detected vs [BASE_BRANCH] and no chunk file list was found. There is nothing to audit on this branch yet — make some changes first, then re-run /vc-audit." Stop.
+- LARGE_DIFF check: if committed shortstat was empty but uncommitted/untracked files exist, use `git diff BASE_BRANCH --shortstat` count instead of the committed shortstat. If total files > 15 or insertions > 800, this is a **LARGE_DIFF** — call AskUserQuestion: "This branch touches N files / ~M lines, which may be too large to fully audit in one context window. How would you like to proceed?"
 - Options:
   - "Scope to a directory — re-run as `/vc-audit src/some-dir/`"
   - "Scope to specific files — re-run as `/vc-audit file1.ts file2.ts`"
@@ -231,18 +239,19 @@ what each file does and how the changes interact before selecting lenses.
 Sensitive files are excluded from the diff automatically (see Sensitive File Protection).
 
 ```bash
-git diff BASE_BRANCH...HEAD -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions — from `git ls-files --cached --ignored --exclude-standard` above]
+git diff BASE_BRANCH -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions — from `git ls-files --cached --ignored --exclude-standard` above]
 ```
 
-Substitute BASE_BRANCH with the value determined above. For an initial commit session, substitute `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
+Substitute BASE_BRANCH with the value determined above. For an initial commit session, substitute `4b825dc642cb6eb9a060e54bf8d69288fbee4904`. This command (`git diff BASE_BRANCH`) captures committed changes, staged changes, and unstaged tracked changes in one shot. If UNTRACKED_FILES is non-empty, use the Read tool to read those files separately — no diff exists for files never added to git.
 
-<gate>Do not proceed past this block until you have the diff output. The code in this diff is what you will walk in Phase 4 — it must be in your context before you select lenses.</gate>
+<gate>Do not proceed past this block until you have the diff output (and have read any UNTRACKED_FILES). The code in this diff is what you will walk in Phase 4 — it must be in your context before you select lenses.</gate>
 
 ### Stack detection
 
 From the file list and diff, identify which of the following stacks are in play.
 **More than one can apply.**
 **If FILE_READ_MODE is true:** substitute the chunk file paths and their extensions for "the file list and diff" — no diff is available; derive stack indicators from filenames and directory names only.
+**If UNTRACKED_FILES is non-empty:** include those paths and their extensions in the file list for stack detection.
 
 | Stack | Indicators |
 |---|---|
@@ -1342,6 +1351,7 @@ Before walking, explicitly enumerate every system surface in scope for this bran
 Derive the list from the issue description and the diff — do not use a fixed template.
 
 **If FILE_READ_MODE is true:** derive the surface map from the chunk file list in the plan stub. Use the file paths, extensions, and directory names — no diff is available. Create one surface entry per chunk file (or per logical unit within a file if it has multiple distinct responsibilities).
+**If UNTRACKED_FILES is non-empty:** include each untracked file as a surface entry. Mark it as `(untracked — Read tool)` so the walk step knows to read it rather than diff it.
 
 For each surface, state:
 1. **What it is** — give it a name (e.g., "user profile RPC function", "nightly CSV export script", "MCP file-read tool", "checkout ETL pipeline")
@@ -1504,7 +1514,7 @@ _none yet_
 2. If the most recent pass entry in the pass log shows `— in progress`, that pass did not complete — most likely due to context compaction. Check the artifact for a `## Pass N progress` section immediately following that marker (N = the in-progress pass number). If found: read the `[x]`/`[ ]` markers — `[x]` surfaces were already walked and their findings are already written to the artifact; `[ ]` surfaces were not. Store the `[ ]` surfaces as REMAINING_SURFACES. Note whether `subagent:` shows `dispatched` or `pending`. If `## Pass N progress` is not found (compaction happened before the section was written): restart the pass from the beginning.
 3. Derive the current pass number, all open findings, and the clean pass count from the artifact. Do not rely on conversation memory. Also scan the entire artifact for the highest F-NNN number referenced anywhere — including in Resolved cross-references like `(was F-011)` and Deferred entries. Store this value as NEXT_F_NUM. All new findings in this pass must be numbered starting from NEXT_F_NUM + 1. Re-read the full surface map section from the artifact and store every surface listed. If resuming from a `## Pass N progress` section (step 2 above), only the `[ ]` surfaces (REMAINING_SURFACES) need to be walked this session — `[x]` surfaces are already complete.
 4. Read the `**Subagents:**` field from the artifact header. Do not ask the user about subagents again — this setting was recorded when the audit was created.
-5. Re-derive FILE_READ_MODE: check whether `git diff BASE_BRANCH...HEAD --shortstat` is empty AND the plan stub at `.vibe-check/vc-plan/[branch-slug].md` contains a `## Chunk files` section. If both are true, FILE_READ_MODE = true.
+5. Re-derive FILE_READ_MODE and UNTRACKED_FILES: run `git diff BASE_BRANCH...HEAD --shortstat`. If non-empty: normal diff mode. If empty: run `git status --porcelain`, filter out `.vibe-check/` and `.claude/` paths. If any M/A/R entries remain: working tree changes exist, proceed in normal diff mode. Store `??` entries (filtered by sensitive exclusions) as UNTRACKED_FILES. If both committed shortstat and filtered status are empty AND the plan stub at `.vibe-check/vc-plan/[branch-slug].md` contains a `## Chunk files` section: FILE_READ_MODE = true.
 
 </recovery>
 
@@ -1541,11 +1551,13 @@ For each surface, list the file paths associated with it from the surface map (s
 
 **Step 2 — Load only this surface's scope:**
 
-If FILE_READ_MODE is false (normal diff-based audit):
+If FILE_READ_MODE is false:
+- If this surface is marked `(untracked — Read tool)`: use the Read tool to read each file. Skip the diff — untracked files have no diff.
+- Otherwise (tracked file — committed, staged, or unstaged):
 ```bash
-git diff BASE_BRANCH...HEAD -- [file paths for this surface]
+git diff BASE_BRANCH -- [file paths for this surface]
 ```
-Substitute BASE_BRANCH. For an initial commit session, substitute `4b825dc642cb6eb9a060e54bf8d69288fbee4904`. If `$ARGUMENTS` was provided, verify the surface files fall within the requested scope — if a surface file is outside the requested scope, mark it `[x]` and skip it.
+Substitute BASE_BRANCH. For an initial commit session, substitute `4b825dc642cb6eb9a060e54bf8d69288fbee4904`. This captures committed changes AND any uncommitted staged/unstaged changes vs the base branch. If `$ARGUMENTS` was provided, verify the surface files fall within the requested scope — if a surface file is outside the requested scope, mark it `[x]` and skip it.
 
 If FILE_READ_MODE is true: use the Read tool to read the chunk file for this surface. If the Read tool returns an error, stop and report: "Could not read `[filename]` — verify the file exists. If moved or renamed, update `## Chunk files` in the plan stub and re-run /vc-audit." If the file returns exactly 2000 lines, re-read with increasing offsets (2000, 4000, …) until a read returns fewer than 2000 lines. Concatenate all parts as the complete file content.
 
@@ -1701,11 +1713,11 @@ The subagent prompt used was the one below (for reference — do not re-dispatch
 
 The subagent prompt (for reference only — already dispatched):
 
-**If FILE_READ_MODE is false** (normal diff-based audit): substitute BASE_BRANCH, artifact path, and scope paths into this prompt. If this is a scoped audit, read the `**Scope:**` field from the artifact header and append the scope path(s) as trailing arguments after the sensitive file exclusions in the git diff command (e.g. `-- ':!...' src/auth/`). If this is a full audit, omit the trailing path arguments entirely.
+**If FILE_READ_MODE is false** (normal diff-based audit): substitute BASE_BRANCH, artifact path, and scope paths into this prompt. If this is a scoped audit, read the `**Scope:**` field from the artifact header and append the scope path(s) as trailing arguments after the sensitive file exclusions in the git diff command (e.g. `-- ':!...' src/auth/`). If this is a full audit, omit the trailing path arguments entirely. Use `git diff [BASE_BRANCH]` (not `...HEAD`) to capture both committed and uncommitted tracked changes.
 
 "Run this git command and read the full output:
 
-git diff [BASE_BRANCH]...HEAD -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' [scope paths if scoped audit]
+git diff [BASE_BRANCH] -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' [scope paths if scoped audit]
 
 Then use the Read tool to read the audit artifact at [artifact path].
 
@@ -1840,7 +1852,7 @@ After the pass report:
 
    Determine whether the last two pass log entries are both clean by the definition above AND there are zero open findings. Store this as CONVERGENCE_CONDITIONS_MET (true/false). Do not announce this determination — just store it.
 
-   **If this is a scoped audit** (artifact path contains `--`) AND CONVERGENCE_CONDITIONS_MET is true: run `git diff BASE_BRANCH...HEAD --name-only` to get the full branch file list. Glob `.vibe-check/vc-audit/[branch-slug]--*.md` to find all other scoped audit artifacts for this branch. Compute which files on this branch are not covered by any scoped audit. If unaudited files remain, set CONVERGENCE_CONDITIONS_MET = false and note the uncovered files.
+   **If this is a scoped audit** (artifact path contains `--`) AND CONVERGENCE_CONDITIONS_MET is true: run `git diff BASE_BRANCH --name-only` to get the full tracked file list, and check `git status --porcelain` for any UNTRACKED_FILES (filtered). Combine both for the full branch file list. Glob `.vibe-check/vc-audit/[branch-slug]--*.md` to find all other scoped audit artifacts for this branch. Compute which files on this branch are not covered by any scoped audit. If unaudited files remain, set CONVERGENCE_CONDITIONS_MET = false and note the uncovered files.
 
    **Note for small branches:** On branches with fewer than five changed files, if CONVERGENCE_CONDITIONS_MET is true, verify the surface map has one entry per changed file and that each receipt entry cited actual line numbers. If coverage is superficial, set CONVERGENCE_CONDITIONS_MET = false.
 

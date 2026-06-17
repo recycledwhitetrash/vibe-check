@@ -1,6 +1,6 @@
 # /vc-bootstrap — Machine Setup
 
-<!-- version: 2026-06-16.1 -->
+<!-- version: 2026-06-17.2 -->
 
 Setup for the vibe-check suite. Configures git, installs and authenticates GitHub CLI,
 installs gitleaks, and generates a security-baseline `.gitignore` for your project. Orients
@@ -21,7 +21,7 @@ Read the JSON from stdout and check the `vc-bootstrap` entry.
 
 <output-handlers>
 
-**`vc-bootstrap` version matches `2026-06-15.3`**: proceed silently.
+**`vc-bootstrap` version matches `2026-06-17.2`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -43,7 +43,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-15.3`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-17.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -53,7 +53,7 @@ If Continue: proceed to Phase 0.
 3. Use the Bash tool to download and overwrite the skill file in one step:
    - bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-bootstrap.md -o "[project-root]/.claude/commands/vc-bootstrap.md"`
    - PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-bootstrap.md -o "[project-root]/.claude/commands/vc-bootstrap.md"`
-4. If curl exits 0: tell the user "Updated to the latest version. Please re-run /vc-bootstrap." Do not continue.
+4. If curl exits 0: tell the user "Updated to the latest version — reloading skill from disk." Then use the Read tool to read `[project-root]/.claude/commands/vc-bootstrap.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete.
 5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
@@ -560,6 +560,14 @@ Check for manifest files to determine which package ecosystems are in use. Run t
 | `pom.xml` | `maven` |
 | `build.gradle` or `build.gradle.kts` | `gradle` |
 | `composer.json` | `composer` |
+| `Dockerfile` | `docker` |
+| `*.csproj`, `packages.config`, `*.nuspec` | `nuget` |
+| `pubspec.yaml` | `pub` |
+| `Package.swift` | `swift` |
+| `*.tf` | `terraform` |
+| `mix.exs` | `hex` |
+| `elm.json` | `elm` |
+| `.gitmodules` | `gitsubmodule` |
 | Any `.yml` file under `.github/workflows/` | `github-actions` |
 
 Use the Read tool to check whether `.github/dependabot.yml` already exists.
