@@ -1,6 +1,6 @@
 # /vc-plan
 
-<!-- version: 2026-06-15.5 -->
+<!-- version: 2026-06-16.2 -->
 
 The project coordinator for your entire codebase. Run it before writing code to plan a
 feature, to capture ideas before they slip away, or when you're not sure what to build next.
@@ -380,10 +380,11 @@ Run `git status --short`. If any uncommitted changes exist:
   - "Yes — stash them" (run `git stash` before switching)
   - "No — switch anyway" (user accepts the risk of conflicts)
 </mandatory>
-If stash: run `git stash`, then proceed with checkout. After the checkout succeeds, tell the user: "Your changes on `[current-branch]` have been temporarily saved (stashed) — they are not lost, just parked. Run `git stash pop` on that branch when you want them back."
+If stash: run `git stash`, then proceed with checkout.
 - bash/zsh: `git checkout [BASE_BRANCH] && git pull origin [BASE_BRANCH]`
 - PowerShell: run as two separate commands: `git checkout [BASE_BRANCH]` then `git pull origin [BASE_BRANCH]`
 If the pull fails: continue with a warning — "Could not pull latest from origin — proceeding with local state."
+After the pull: run `git stash pop` to restore the changes onto [BASE_BRANCH]. If the pop has conflicts, tell the user: "There were merge conflicts restoring your stashed changes onto [BASE_BRANCH] — resolve them before continuing." and stop.
 Proceed to Phase 1.
 
 </output-handlers>
@@ -954,7 +955,7 @@ Once the approach is confirmed, apply subtraction thinking: what parts of this a
   - "I want to think about this — let me describe a slimmer version" — type your slimmed scope in Other
 </mandatory>
 
-Incorporate any scope reductions before continuing.
+Incorporate any scope reductions before continuing. If the user named specific items to cut or defer (from the "Other" response), note them as DEFERRED_ITEMS — they will be added to the roadmap as ideas after the Not in scope section is written in the Update artifact step.
 
 ### Scope check
 
@@ -1034,6 +1035,15 @@ After the Edit, use the Read tool to verify the Approaches section no longer con
 <mandatory>Use the Edit tool to replace the `*In progress*` placeholder in the Not in scope section with the user's answer as a bulleted list. If the user listed reasons, include them. If the list is empty, write: "None stated."</mandatory>
 
 After the Edit, use the Read tool to verify the Not in scope section no longer contains `*In progress*`. If it does, re-attempt once. If it still fails, tell the user and provide the exact text to add manually.
+
+**Save deferred items to the roadmap as ideas.** Collect all deferred items: the Not in scope list (if not "None stated") plus any DEFERRED_ITEMS named in the subtraction pass. Deduplicate. For each item, derive a short feature name (3–5 words, title-cased). Add each as an `idea`-status row to the roadmap using the same logic as the brainstorm save path:
+- Read the roadmap at `.vibe-check/vc-plan/roadmap.md` using the Read tool.
+- If it exists and has a `## Features` table: use the Edit tool to append a new Features row and matching Progress row for each item. Use the next available feature number.
+- If it exists but has no `## Features` table: append the Features, Progress, and How-to-work sections.
+- If no roadmap exists: create it with the Write tool using the full roadmap template from Phase 2.
+- For each row: `| [next #] | [feature name] | idea | — | — | — |` and `| [feature name] | idea | — | — |`
+
+After saving, tell the user: "I've added [N] deferred item(s) to your roadmap as ideas — they'll appear as options next time you run /vc-plan."
 
 </phase>
 
