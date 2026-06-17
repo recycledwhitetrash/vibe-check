@@ -1,6 +1,6 @@
 # /vc-bootstrap — Machine Setup
 
-<!-- version: 2026-06-15.3 -->
+<!-- version: 2026-06-16.1 -->
 
 Setup for the vibe-check suite. Configures git, installs and authenticates GitHub CLI,
 installs gitleaks, and generates a security-baseline `.gitignore` for your project. Orients
@@ -544,6 +544,40 @@ Use the Write tool to create `.vibe-check/vc-local.conf`. If the file already ex
     "gitleaks": [true|false]
   }
 }
+```
+
+### Dependabot
+
+Check for manifest files to determine which package ecosystems are in use. Run these checks using the Read tool (check if file exists) or Bash `ls`:
+
+| File | Ecosystem |
+|---|---|
+| `package.json` | `npm` |
+| `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | `pip` |
+| `go.mod` | `gomod` |
+| `Cargo.toml` | `cargo` |
+| `Gemfile` | `bundler` |
+| `pom.xml` | `maven` |
+| `build.gradle` or `build.gradle.kts` | `gradle` |
+| `composer.json` | `composer` |
+| Any `.yml` file under `.github/workflows/` | `github-actions` |
+
+Use the Read tool to check whether `.github/dependabot.yml` already exists.
+
+**If it already exists:** skip this section silently.
+
+**If it does not exist and at least one ecosystem was detected:** use the Write tool to create `.github/dependabot.yml` with one `updates:` entry per detected ecosystem. Tell the user: "Created `.github/dependabot.yml` — Dependabot will check [list ecosystems] for dependency updates weekly."
+
+**If no ecosystems were detected** (clean project with no code yet): skip silently — vc-ship will create the file once code is added.
+
+```yaml
+version: 2
+updates:
+[for each detected ecosystem:]
+  - package-ecosystem: "[ecosystem]"
+    directory: "/"
+    schedule:
+      interval: "weekly"
 ```
 
 ### Suite orientation

@@ -1,6 +1,6 @@
 # /vc-ship — Ship Flow
 
-<!-- version: 2026-06-16.1 -->
+<!-- version: 2026-06-16.2 -->
 
 Guides you through a safe push-and-PR flow for a feature branch. Before pushing, runs a
 gitleaks secret scan (hard stop on any detected secrets), a lint check, and test coverage
@@ -665,6 +665,46 @@ If still below 80% after 3 rounds: skip the question and proceed directly — no
 "tests ⚠ [N]% (below 80%)" and proceed to Phase 3.
 
 If the state file exists: use the Edit tool to update the `**Last phase:**` line to `**Last phase:** 2C`.
+
+### D — Dependabot
+
+Detect which package ecosystems are present by checking for these manifest files (use the Read tool to test existence):
+
+| File | Ecosystem |
+|---|---|
+| `package.json` | `npm` |
+| `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | `pip` |
+| `go.mod` | `gomod` |
+| `Cargo.toml` | `cargo` |
+| `Gemfile` | `bundler` |
+| `pom.xml` | `maven` |
+| `build.gradle` or `build.gradle.kts` | `gradle` |
+| `composer.json` | `composer` |
+| Any `.yml` file under `.github/workflows/` | `github-actions` |
+
+Use the Read tool to check whether `.github/dependabot.yml` exists.
+
+**If it does not exist and at least one ecosystem was detected:**
+<mandatory>Call AskUserQuestion with:
+- Question: "No `.github/dependabot.yml` found. Dependabot keeps dependencies updated automatically — detected ecosystems: [list]. Create it now?"
+- Options:
+  - "Yes — create dependabot.yml (Recommended)"
+  - "No — skip"
+</mandatory>
+If yes: use the Write tool to create `.github/dependabot.yml` with one `updates:` entry per detected ecosystem (weekly schedule, directory `/`). Tell the user it was created.
+
+**If it exists:** use the Read tool to read it. Compare the `package-ecosystem:` values in the file against the detected ecosystems. If any detected ecosystem is missing from the file:
+<mandatory>Call AskUserQuestion with:
+- Question: "`.github/dependabot.yml` exists but is missing coverage for: [list new ecosystems]. Add them?"
+- Options:
+  - "Yes — add missing ecosystems (Recommended)"
+  - "No — leave it as-is"
+</mandatory>
+If yes: use the Edit tool to append the missing `updates:` entries to the file. Tell the user what was added.
+
+**If no ecosystems detected or file is already complete:** continue silently.
+
+If the state file exists: use the Edit tool to update the `**Last phase:**` line to `**Last phase:** 2D`.
 
 </phase>
 
