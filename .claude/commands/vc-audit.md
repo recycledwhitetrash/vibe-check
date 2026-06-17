@@ -1,6 +1,6 @@
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-16.7 -->
+<!-- version: 2026-06-16.10 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -1583,11 +1583,15 @@ are the audit surface, not a diff.
   is unverified and must be assigned confidence ≤4 (not added to Open). Do not work around
   this by assigning 5–6 to unquoted findings. Do not run code to simulate or verify a finding — if the issue is not evident from reading the code, use the Read tool to pull in more context, not a shell interpreter.
 - **Record each finding in the artifact immediately when discovered.** Do not accumulate
-  findings in memory and batch them for Phase 5. Write each F-NNN to the artifact as you
-  find it, using the Write or Edit tool. After each write, use the Read tool to verify the
-  finding appears in the artifact. If it does not, re-attempt once. If it still fails, tell
-  the user and provide the exact finding text to add manually: "Could not write [F-NNN] to
-  the artifact — please add this line to the Open section manually: [full F-NNN entry text]."
+  findings in memory and batch them for Phase 5. For each finding: use the Read tool to read
+  the current Open section of the artifact and identify the last line currently in that section.
+  Use that line as the `old_string` anchor in the Edit tool to append the new F-NNN entry after
+  it. Never use a cached anchor from a previous write — always re-read first. This keeps
+  findings in numeric order regardless of which surface they came from. After each write, use
+  the Read tool to verify the finding appears in the artifact. If it does not, re-attempt once.
+  If it still fails, tell the user and provide the exact finding text to add manually: "Could
+  not write [F-NNN] to the artifact — please add this line to the Open section manually:
+  [full F-NNN entry text]."
 - **If a finding predates this branch** (the issue exists in code not changed by this diff),
   add `[pre-existing]` inline to the finding entry. Pre-existing issues are still surfaced
   and still require action.
@@ -1832,93 +1836,42 @@ After the pass report:
    A pass with no open findings but incomplete surface coverage is not clean — it is an
    incomplete pass.</definition>
 
-   Look at the last two pass log entries in the artifact. If both were clean by the
-   definition above AND there are zero open findings, use the **convergence checkpoint**.
-   If both were clean but open findings somehow remain (unexpected — re-evaluate pass cleanliness), use the **blocked convergence checkpoint**.
-   Otherwise use the **standard checkpoint**.
+   Re-read the artifact using the Read tool. Count R-NNN, D-NNN, and X-NNN entries added this pass, and count all remaining F-NNN entries in Open. Use these counts — do not use memory or session totals.
 
-   **Standard checkpoint (plain text, no markdown):**
+   Determine whether the last two pass log entries are both clean by the definition above AND there are zero open findings. Store this as CONVERGENCE_CONDITIONS_MET (true/false). Do not announce this determination — just store it.
 
-   Before showing the checkpoint, re-read the artifact using the Read tool. Count R-NNN, D-NNN, and X-NNN entries added this pass, and count all remaining F-NNN entries in Open. Use these counts — do not use memory or session totals.
+   **If this is a scoped audit** (artifact path contains `--`) AND CONVERGENCE_CONDITIONS_MET is true: run `git diff BASE_BRANCH...HEAD --name-only` to get the full branch file list. Glob `.vibe-check/vc-audit/[branch-slug]--*.md` to find all other scoped audit artifacts for this branch. Compute which files on this branch are not covered by any scoped audit. If unaudited files remain, set CONVERGENCE_CONDITIONS_MET = false and note the uncovered files.
 
+   **Note for small branches:** On branches with fewer than five changed files, if CONVERGENCE_CONDITIONS_MET is true, verify the surface map has one entry per changed file and that each receipt entry cited actual line numbers. If coverage is superficial, set CONVERGENCE_CONDITIONS_MET = false.
+
+   <mandatory>Call AskUserQuestion with the pass checkpoint. Use this exact format — plain text, no markdown:
+
+   **Question text:**
    ```
    Pass [N] complete
 
    This pass: [N] fixed · [N] deferred · [N] dismissed · [N] new findings
    Still open: [N] findings
+   [If CONVERGENCE_CONDITIONS_MET: add a blank line then "Two consecutive clean passes — no findings opened in either pass."]
+   [If scoped audit with uncovered files: add "Uncovered files: [list]"]
 
    Artifact: .vibe-check/vc-audit/[branch-name].md
-   Ready to continue?
    ```
 
-   Options:
+   **Options — always include these three:**
    - **Continue to pass [N+1]** — Run the next pass now
    - **Pause** — Stop here; resume later by running /vc-audit again
-   - **Stop** — Done auditing; I will review and decide on convergence myself
+   - **Stop** — Done auditing; I will review and decide on open findings myself
+
+   **Additional option — include only if CONVERGENCE_CONDITIONS_MET is true:**
+   - **Declare convergence** — Mark this audit complete (two clean passes, nothing open)
+   </mandatory>
 
    **If the user chooses Stop**: update the artifact header `**Status:** STOPPED` using the Edit tool. After the Edit, use the Read tool to verify `**Status:** STOPPED` appears in the artifact header. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the artifact status — please change the `**Status:**` line to `**Status:** STOPPED` manually." Then stop. A STOPPED audit will not auto-resume; the user must re-run /vc-audit to start a new session.
    **If the user chooses Pause**: stop immediately without modifying the artifact. Phase 3 detects the IN PROGRESS artifact on the next run and resumes from where this pass left off.
+   **If the user chooses Continue**: loop back to Phase 4 and run a full pass from scratch. Do not skip surfaces because they were clean last pass.
 
-   **Blocked convergence checkpoint (unexpected state: 2 clean passes recorded but open findings remain — re-evaluate pass cleanliness, plain text):**
-   ```
-   Two consecutive clean passes recorded — but [N] findings are still open.
-   This state is unexpected: a clean pass requires zero findings opened. Re-check the pass logs.
-
-   Every open finding must be fixed, deferred, or dismissed before convergence can be declared.
-   Review the open findings in the artifact and take action on each one, then continue.
-
-   Artifact: .vibe-check/vc-audit/[branch-name].md
-   ```
-
-   Options:
-   - **Continue to pass [N+1]** — Work through the open findings, then run another pass
-   - **Pause** — Stop here; resume later by running /vc-audit again
-
-   **Convergence checkpoint (2 consecutive clean passes + zero open findings, plain text):**
-
-   **If this is a scoped audit** (artifact path contains `--`): before showing the convergence prompt, run `git diff BASE_BRANCH...HEAD --name-only` to get the full branch file list. Compare it against the surface map entries in this artifact and in any other scoped audit artifacts for this branch (Glob `.vibe-check/vc-audit/[branch-slug]--*.md` to find them all). Compute:
-   - Files audited across all scoped sessions for this branch
-   - Files on this branch not covered by any scoped audit
-
-   Show the coverage summary before the convergence prompt:
-   ```
-   Scoped audit coverage — [branch-slug]
-   Audited in this session: [N files — list them]
-   Audited in other sessions: [N files — list artifact names]
-   Not yet audited: [N files — list them, or "none — full branch covered"]
-   ```
-   If unaudited files remain, add: "These files will not be reviewed before merge. Run `/vc-audit [path]` to cover them, or proceed knowing they are unreviewed."
-
-   Before showing the convergence prompt, re-read the artifact using the Read tool and count all entries in each section: R-NNN entries in Resolved, D-NNN entries in Deferred, X-NNN entries in Dismissed. Use these counts — do not use memory or session totals.
-
-   **Note for small branches:** On branches with fewer than five changed files, two clean
-   passes can be reached quickly. Before showing the convergence prompt, confirm that the surface map
-   was comprehensive (one entry per changed file) and that each receipt entry cited actual
-   line numbers — not just a surface name with no evidence.
-
-   <gate>You have detected two consecutive clean passes and zero open findings. You may NOT declare convergence yourself — not in text, not by updating the artifact. The only valid convergence declaration is the user explicitly selecting "Declare convergence" from the AskUserQuestion call below. Do not proceed past this gate without calling AskUserQuestion.</gate>
-
-   <mandatory>Call AskUserQuestion with the following question text and options. Stop and wait for the user's selection before taking any further action.
-
-   Question text (plain text — fill in the brackets):
-   ```
-   Two consecutive clean passes — no findings opened in either pass.
-   All findings resolved, deferred, or dismissed.
-
-   Total: [N] resolved · [N] deferred · [N] dismissed
-   Passes completed: [N]
-
-   Review the artifact at .vibe-check/vc-audit/[artifact-path] before deciding.
-   Ready to declare convergence?
-   ```
-
-   Options:
-   - **Declare convergence** — Mark this audit complete
-   - **Run one more pass** — Not confident yet, keep going
-   - **Pause** — Stop here; resume later by running /vc-audit again
-   </mandatory>
-
-   **Only if the user selects "Declare convergence"**, update the artifact header using two Edit calls:
+   **If the user selects "Declare convergence"**, update the artifact header using two Edit calls:
 
    **Edit 1** — Replace the existing `**Status:**` line in place. Use the Edit tool with:
    - old_string: `**Status:** IN PROGRESS`
