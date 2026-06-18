@@ -1,7 +1,7 @@
 <!-- AUTO-GENERATED from src/vc-audit.md.tmpl — do not edit directly -->
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-18.1 -->
+<!-- version: 2026-06-18.2 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -42,7 +42,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-18.1`**: proceed silently.
+**`vc-audit` version matches `2026-06-18.2`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -64,7 +64,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-18.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-18.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -1463,6 +1463,10 @@ If "Continue from where I stopped": proceed as if Status were IN PROGRESS.
 </mandatory>
 
 Record the answer. Then create the artifact with the header below, setting `**Subagents:**` to `enabled` or `disabled` based on the answer. Write it to the computed artifact path using the Write tool. The Write tool creates parent directories automatically. Do not continue until the file exists on disk.
+
+<mandatory>The `## Findings` section must be a flat table — exactly as shown in the template below. Do NOT use `### Open`, `### Deferred`, `### Dismissed`, or `### Resolved` subsections when creating a new artifact. Those grouped sections are only written at terminal states (STOPPED or CONVERGED). A new artifact has an empty table with only the header row.</mandatory>
+
+After writing, use the Read tool to verify the artifact exists and that `## Findings` is followed by the table header `| ID | Pass | Severity | Location | Description | Status |`, not by `### Open` or any other subsection header. If the file contains `### Open` or `### Deferred` under `## Findings`, immediately overwrite it with the correct template.
 
 ### Numbering convention
 
