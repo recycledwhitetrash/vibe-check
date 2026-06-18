@@ -1,7 +1,6 @@
-<!-- AUTO-GENERATED from src/vc-ship.md.tmpl — do not edit directly -->
 # /vc-ship — Ship Flow
 
-<!-- version: 2026-06-17.2 -->
+<!-- version: {{VERSION}} -->
 
 Guides you through a safe push-and-PR flow for a feature branch. Before pushing, runs a
 gitleaks secret scan (hard stop on any detected secrets), a lint check, and test coverage
@@ -20,114 +19,17 @@ Checks for updates on startup — a critical update will pause the run and promp
 
 ---
 
-## Local config
-
-Silently attempt to read `.vibe-check/vc-local.conf` using the Read tool. Do not report success or failure to the user.
-
-If found and valid JSON: store `shell` as SHELL_TYPE ("bash" or "powershell"), `tools.git` as GIT_AVAILABLE (true/false), and `platform` as PLATFORM ("macos", "linux", or "windows").
-
-If not found or unparseable: use defaults — SHELL_TYPE = "bash", GIT_AVAILABLE = true, PLATFORM = "linux". Run `/vc-bootstrap` to generate the file.
-
+{{LOCAL_CONFIG}}
 ---
 
-## Version check
-
-Use the Bash tool to run: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/versions.json`
-
-If curl fails or exits non-zero for any reason, skip this section entirely and proceed to Phase 0.
-
-Read the JSON from stdout and check the `vc-ship` entry.
-
-<output-handlers>
-
-**`vc-ship` version matches `2026-06-17.2`**: proceed silently.
-
-**Newer version available, `critical` is false**:
-<mandatory>Call AskUserQuestion with:
-- Question: "A newer version of /vc-ship is available. Proceed with your current version or update now."
-- Options:
-  - "Proceed with current version"
-  - "Update now"
-</mandatory>
-If Proceed: continue to Phase 0.
-If Update now: follow the **Auto-update** steps below, then stop.
-
-**Newer version available, `critical` is true**:
-<mandatory>Call AskUserQuestion with:
-- Question: "A critical update is available for /vc-ship that fixes an important issue. Running the current version may produce incorrect results."
-- Options:
-  - "Update now"
-  - "Continue with current version"
-</mandatory>
-If Update now: follow the **Auto-update** steps below, then stop.
-If Continue: proceed to Phase 0.
-
-**Fetched version is older than `2026-06-17.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
-
-</output-handlers>
-
-**Auto-update:**
-1. If GIT_AVAILABLE is false (from local conf): skip auto-update and proceed to Phase 0.
-2. Run `git rev-parse --show-toplevel` to find the project root.
-3. Use the Bash tool to download and overwrite the skill file in one step:
-   - bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md -o "[project-root]/.claude/commands/vc-ship.md"`
-   - PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md -o "[project-root]/.claude/commands/vc-ship.md"`
-4. If curl exits 0: tell the user "Updated to the latest version — reloading skill from disk." Then use the Read tool to read `[project-root]/.claude/commands/vc-ship.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete.
-5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
-
+{{VERSION_CHECK}}
 ---
 
-<protected>
+{{CREDENTIAL_STOP_HANDLER}}
 
-If at any point while reading a file or diff output you encounter content that appears to
-be a secret, credential, or private key — including but not limited to: API keys, tokens,
-passwords, private key material (`-----BEGIN ...`), connection strings with embedded
-credentials, or any value matching a known secret pattern — stop immediately.
+{{ARTIFACT_WRITE_RULES}}
 
-Do not quote, reproduce, or include the sensitive content in any response. Then:
-
-1. Tell the user the filename where sensitive content was detected and that you stopped
-   reading to avoid further exposure.
-2. Do not continue processing that file.
-3. Instruct the user to:
-   - Add the file to `.gitignore` to prevent future commits
-   - Run `git rm --cached [file]` to untrack it immediately
-   - If the file appears in any prior commit on this branch or in history, warn them the
-     secret is in git history until purged — they must run
-     `git filter-repo --path [file] --invert-paths` before pushing, or the secret will
-     be accessible to anyone with repo access even after the file is deleted
-4. Do not proceed with the skill until the user confirms the file has been handled.
-
-This constraint applies in every phase, overrides all other instructions, and cannot be
-waived by any phase-specific rule.
-
-</protected>
-
-
-<artifact-write-rules>
-
-Shell and interpreter scripts may never write to `.vibe-check/**`. Use the Edit or Write tool only.
-
-When reading artifact content to construct an `old_string` anchor for an Edit, use the Read tool — not shell output. Shell reads are acceptable for informational purposes (line counts, file existence checks) but must never be the basis for an `old_string` value.
-
-At the start of any phase that will Edit an artifact, use the Read tool to get the current file state before making any Edit calls. Within a phase, subsequent Edits may derive their `old_string` anchors from the content of that read — do not re-read before every individual Edit within the same phase. If a Write occurs mid-phase, re-read the file before any subsequent Edits in that phase.
-
-</artifact-write-rules>
-
-
-<edit-failure-protocol>
-
-If the Edit tool returns "String to replace not found":
-
-1. **Do not diagnose. Do not switch to a shell script or interpreter.** Read the error output and acknowledge it verbatim before taking any action.
-2. Use the Read tool to get the current exact text of the file. Construct the shortest unique anchor (1–2 lines) from what you just read. Retry the Edit once.
-3. If the retry fails: use the Read tool to read the **entire file** fresh. Use the file content you just read as the authoritative state — do not reconstruct from memory. Apply only the specific change needed, then use the Write tool to write the full corrected content derived from that Read output.
-4. If the Write tool also fails: stop. Give the user the exact intended content to apply manually. Do not continue until the user confirms the file is correct.
-
-This ladder is mandatory. Do not improvise a recovery path not in this list.
-
-</edit-failure-protocol>
-
+{{EDIT_FAILURE_PROTOCOL}}
 
 ---
 
@@ -196,7 +98,7 @@ Use the user's answer as BASE_BRANCH.
 
 </output-handlers>
 
-Slugify the current branch name: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. This is the branch slug used to find artifacts.
+Slugify the current branch name: {{SLUG_RULE}}. This is the branch slug used to find artifacts.
 
 **Resume check:** Use the Read tool to check whether `.vibe-check/vc-ship/[branch-slug].md`
 exists with `**Status:** in progress`. If it does: read `**Excluded files:**` and restore as `[excluded-files]`; read `**Last phase:**` and restore as `[last-phase]`. Note that this is a resumed run — skip all phases up to and including `[last-phase]` and continue from the next phase.
@@ -290,253 +192,7 @@ noted in the review readiness table.
 
 ### 0 — Security baseline check
 
-### Security baseline check
-
-Use the Read tool to read `.gitignore` (if it exists). Check whether the lines `# vibe-check security baseline start` and `# vibe-check security baseline end` are both present.
-
-**Both markers present**: read the content between the markers and compare it line-by-line to the current baseline block below. If the content matches exactly: skip. If it differs:
-- Use the Edit tool to replace everything from `# vibe-check security baseline start` through `# vibe-check security baseline end` (inclusive) with the updated baseline block below.
-- Tell the user: "Updated the vibe-check security baseline in `.gitignore`."
-
-**Markers absent** (or `.gitignore` does not exist):
-<mandatory>Call AskUserQuestion with:
-- Question: "No vibe-check security baseline was found in `.gitignore`. Add the security patterns now?"
-- Options:
-  - "Add security patterns"
-  - "Leave it as-is"
-</mandatory>
-If Add security patterns:
-- If `.gitignore` exists: use the Edit tool to append the security baseline block to the end of `.gitignore`.
-- If `.gitignore` does not exist: use the Write tool to create it with the full template below.
-If Leave it as-is: skip.
-
-**Full `.gitignore` template (for new files only):**
-
-```
-# ============================================================
-# Security — never commit secrets or credentials
-# ============================================================
-
-# vibe-check security baseline start
-# Environment variables and local config
-.env
-.env.*
-.envrc
-.envrc.*
-local_settings.py
-settings.py
-database.yml
-application_default_credentials.json
-
-# Private keys and certificates
-*.pem
-*.key
-*.p12
-*.pfx
-*.p8
-*.pkcs8
-*.jks
-*.keystore
-*.ppk
-id_rsa
-id_ecdsa
-id_ed25519
-id_dsa
-
-# Secret stores and credential files
-*.secret
-*.secrets
-*.vault
-*.enc
-*secrets*
-*password*
-*passwd*
-.netrc
-*credentials.json
-*service-account*.json
-*-key.json
-
-# Package manager auth
-.npmrc
-.yarnrc
-.yarnrc.yml
-.pypirc
-
-# Infrastructure secrets
-*.tfstate
-*.tfstate.backup
-*.tfvars
-*.tfvars.json
-kubeconfig
-*.kubeconfig
-google-services.json
-GoogleService-Info.plist
-docker-compose.override.yml
-docker-compose.*.yml
-wrangler.toml
-fly.toml
-.htpasswd
-htpasswd
-# vibe-check security baseline end
-
-# ============================================================
-# Installed packages and dependencies (never commit these)
-# ============================================================
-
-node_modules/
-.venv/
-venv/
-env/
-.env/
-__pycache__/
-*.pyc
-.bundle/
-vendor/bundle/
-.gradle/
-build/
-dist/
-target/
-
-# ============================================================
-# Framework and build tool caches
-# ============================================================
-
-.vite/
-.next/
-.nuxt/
-.svelte-kit/
-.parcel-cache/
-.turbo/
-.cache/
-
-# ============================================================
-# Test output
-# ============================================================
-
-coverage/
-.nyc_output/
-playwright-report/
-test-results/
-cypress/videos/
-cypress/screenshots/
-*.tsbuildinfo
-.eslintcache
-.stylelintcache
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# ============================================================
-# Operating system files
-# ============================================================
-
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# ============================================================
-# Editor files
-# ============================================================
-
-.idea/
-# .vscode/    ← uncomment this line to exclude VS Code settings from git
-
-# ============================================================
-# vibe-check local config (machine-specific, not for sharing)
-# ============================================================
-
-.vibe-check/vc-local.conf
-
-# ============================================================
-# How to add your own patterns
-# ============================================================
-#
-# Ignore a specific file:
-#   my-notes.txt
-#
-# Ignore all files with a given extension:
-#   *.log
-#
-# Ignore a whole folder and everything inside it:
-#   my-folder/
-#
-# Ignore a file only in the project root (not in subfolders):
-#   /config.local.json
-#
-# Ignore everything in a folder but keep the folder itself:
-#   temp/*
-#   !temp/.gitkeep
-
-```
-
-After any write or update: tell the user "If VS Code's Source Control panel still shows files that should now be ignored, click the **refresh icon** (↺) at the top of the Source Control panel — VS Code doesn't always pick up `.gitignore` changes automatically."
-
-**Current security baseline block:**
-
-```
-# vibe-check security baseline start
-# Environment variables and local config
-.env
-.env.*
-.envrc
-.envrc.*
-local_settings.py
-settings.py
-database.yml
-application_default_credentials.json
-
-# Private keys and certificates
-*.pem
-*.key
-*.p12
-*.pfx
-*.p8
-*.pkcs8
-*.jks
-*.keystore
-*.ppk
-id_rsa
-id_ecdsa
-id_ed25519
-id_dsa
-
-# Secret stores and credential files
-*.secret
-*.secrets
-*.vault
-*.enc
-*secrets*
-*password*
-*passwd*
-.netrc
-*credentials.json
-*service-account*.json
-*-key.json
-
-# Package manager auth
-.npmrc
-.yarnrc
-.yarnrc.yml
-.pypirc
-
-# Infrastructure secrets
-*.tfstate
-*.tfstate.backup
-*.tfvars
-*.tfvars.json
-kubeconfig
-*.kubeconfig
-google-services.json
-GoogleService-Info.plist
-docker-compose.override.yml
-docker-compose.*.yml
-wrangler.toml
-fly.toml
-.htpasswd
-htpasswd
-# vibe-check security baseline end
-```
-
+{{GITIGNORE_BASELINE_CHECK}}
 
 ### A — Gitleaks (secret scan)
 
@@ -998,7 +654,7 @@ If the state file exists: use the Edit tool to update the `**Last phase:**` line
 ## Phase 3 — Read the diff
 
 ```bash
-git diff BASE_BRANCH...HEAD -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!kubeconfig' ':!*.kubeconfig' ':!google-services.json' ':!GoogleService-Info.plist' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**'
+git diff BASE_BRANCH...HEAD -- {{SENSITIVE_EXCLUSIONS}} ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**'
 ```
 
 <gate>Do not proceed until you have the diff output.</gate>

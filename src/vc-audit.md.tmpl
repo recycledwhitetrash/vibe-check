@@ -1,7 +1,6 @@
-<!-- AUTO-GENERATED from src/vc-audit.md.tmpl — do not edit directly -->
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-18.1 -->
+<!-- version: {{VERSION}} -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -22,89 +21,13 @@ Checks for updates on startup — a critical update will pause the run and promp
 
 ---
 
-## Local config
-
-Silently attempt to read `.vibe-check/vc-local.conf` using the Read tool. Do not report success or failure to the user.
-
-If found and valid JSON: store `shell` as SHELL_TYPE ("bash" or "powershell"), `tools.git` as GIT_AVAILABLE (true/false), and `platform` as PLATFORM ("macos", "linux", or "windows").
-
-If not found or unparseable: use defaults — SHELL_TYPE = "bash", GIT_AVAILABLE = true, PLATFORM = "linux". Run `/vc-bootstrap` to generate the file.
-
+{{LOCAL_CONFIG}}
 ---
 
-## Version check
-
-Use the Bash tool to run: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/versions.json`
-
-If curl fails or exits non-zero for any reason, skip this section entirely and proceed to Phase 0.
-
-Read the JSON from stdout and check the `vc-audit` entry.
-
-<output-handlers>
-
-**`vc-audit` version matches `2026-06-18.1`**: proceed silently.
-
-**Newer version available, `critical` is false**:
-<mandatory>Call AskUserQuestion with:
-- Question: "A newer version of /vc-audit is available. Proceed with your current version or update now."
-- Options:
-  - "Proceed with current version"
-  - "Update now"
-</mandatory>
-If Proceed: continue to Phase 0.
-If Update now: follow the **Auto-update** steps below, then stop.
-
-**Newer version available, `critical` is true**:
-<mandatory>Call AskUserQuestion with:
-- Question: "A critical update is available for /vc-audit that fixes an important issue. Running the current version may produce incorrect results."
-- Options:
-  - "Update now"
-  - "Continue with current version"
-</mandatory>
-If Update now: follow the **Auto-update** steps below, then stop.
-If Continue: proceed to Phase 0.
-
-**Fetched version is older than `2026-06-18.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
-
-</output-handlers>
-
-**Auto-update:**
-1. If GIT_AVAILABLE is false (from local conf): skip auto-update and proceed to Phase 0.
-2. Run `git rev-parse --show-toplevel` to find the project root.
-3. Use the Bash tool to download and overwrite the skill file in one step:
-   - bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-audit.md -o "[project-root]/.claude/commands/vc-audit.md"`
-   - PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-audit.md -o "[project-root]/.claude/commands/vc-audit.md"`
-4. If curl exits 0: tell the user "Updated to the latest version — reloading skill from disk." Then use the Read tool to read `[project-root]/.claude/commands/vc-audit.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete.
-5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
-
+{{VERSION_CHECK}}
 ---
 
-<protected>
-
-If at any point while reading a file or diff output you encounter content that appears to
-be a secret, credential, or private key — including but not limited to: API keys, tokens,
-passwords, private key material (`-----BEGIN ...`), connection strings with embedded
-credentials, or any value matching a known secret pattern — stop immediately.
-
-Do not quote, reproduce, or include the sensitive content in any response. Then:
-
-1. Tell the user the filename where sensitive content was detected and that you stopped
-   reading to avoid further exposure.
-2. Do not continue processing that file.
-3. Instruct the user to:
-   - Add the file to `.gitignore` to prevent future commits
-   - Run `git rm --cached [file]` to untrack it immediately
-   - If the file appears in any prior commit on this branch or in history, warn them the
-     secret is in git history until purged — they must run
-     `git filter-repo --path [file] --invert-paths` before pushing, or the secret will
-     be accessible to anyone with repo access even after the file is deleted
-4. Do not proceed with the skill until the user confirms the file has been handled.
-
-This constraint applies in every phase, overrides all other instructions, and cannot be
-waived by any phase-specific rule.
-
-</protected>
-
+{{CREDENTIAL_STOP_HANDLER}}
 
 ---
 
@@ -178,8 +101,8 @@ Note any paths returned. If many files share a common directory (e.g., `node_mod
 ```bash
 git log BASE_BRANCH...HEAD --oneline
 git diff BASE_BRANCH...HEAD --stat
-git diff BASE_BRANCH...HEAD --name-only -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!kubeconfig' ':!*.kubeconfig' ':!google-services.json' ':!GoogleService-Info.plist' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
-git diff BASE_BRANCH...HEAD --shortstat -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!kubeconfig' ':!*.kubeconfig' ':!google-services.json' ':!GoogleService-Info.plist' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
+git diff BASE_BRANCH...HEAD --name-only -- {{SENSITIVE_EXCLUSIONS}} ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
+git diff BASE_BRANCH...HEAD --shortstat -- {{SENSITIVE_EXCLUSIONS}} ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
 git status --porcelain
 ```
 
@@ -245,7 +168,7 @@ what each file does and how the changes interact before selecting lenses.
 Sensitive files are excluded from the diff automatically (see Sensitive File Protection).
 
 ```bash
-git diff BASE_BRANCH -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!kubeconfig' ':!*.kubeconfig' ':!google-services.json' ':!GoogleService-Info.plist' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions — from `git ls-files --cached --ignored --exclude-standard` above]
+git diff BASE_BRANCH -- {{SENSITIVE_EXCLUSIONS}} ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions — from `git ls-files --cached --ignored --exclude-standard` above]
 ```
 
 Substitute BASE_BRANCH with the value determined above. For an initial commit session, substitute `4b825dc642cb6eb9a060e54bf8d69288fbee4904`. This command (`git diff BASE_BRANCH`) captures committed changes, staged changes, and unstaged tracked changes in one shot. If UNTRACKED_FILES is non-empty, use the Read tool to read those files separately — no diff exists for files never added to git.
@@ -286,7 +209,7 @@ From the file list and diff, identify which of the following stacks are in play.
 
 Check whether a vc-plan artifact exists for this branch:
 
-1. Slugify the current branch name: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens.
+1. Slugify the current branch name: {{SLUG_RULE}}.
 2. Use the Read tool to check for `.vibe-check/vc-plan/[branch-slug].md`.
 
 <output-handlers>
@@ -326,29 +249,7 @@ Before using the Read tool on any file, check its name against this list.
 
 | Pattern | What it covers |
 |---|---|
-| `.env`, `.env.*` | Environment files — API keys, DB URLs, secrets |
-| `.envrc`, `.envrc.*` | direnv config — often exports secrets or tokens |
-| `local_settings.py`, `settings.py` | Django local settings — DATABASE_URL, SECRET_KEY |
-| `database.yml` | Rails database config — connection strings and credentials |
-| `application_default_credentials.json` | GCP auth token written by gcloud auth application-default login |
-| `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.p8`, `*.pkcs8` | Private keys and key containers |
-| `*.jks`, `*.keystore`, `*.ppk` | Java keystores and PuTTY private keys |
-| `id_rsa`, `id_ecdsa`, `id_ed25519`, `id_dsa` | SSH private keys (bare filename, no extension) |
-| `*.secret`, `*.secrets` | Secret files |
-| `*.vault` | Ansible vault files |
-| `*.enc` | Encrypted files |
-| `*secrets*`, `*password*`, `*passwd*` | Generic secrets, password, and credential files |
-| `.netrc` | Network credentials |
-| `*credentials.json`, `*service-account*.json`, `*-key.json` | GCP/service account keys |
-| `.npmrc`, `.yarnrc`, `.yarnrc.yml`, `.pypirc` | Package registry auth tokens |
-| `*.tfstate`, `*.tfstate.backup` | Terraform state — always contains passwords, connection strings, API keys |
-| `*.tfvars`, `*.tfvars.json` | Terraform variable files — commonly contain secrets |
-| `kubeconfig`, `*.kubeconfig` | Kubernetes cluster credentials, client certs, tokens |
-| `google-services.json` | Firebase Android config — contains API keys |
-| `GoogleService-Info.plist` | Firebase iOS config — contains API keys |
-| `docker-compose.override.yml`, `docker-compose.*.yml` | Docker secrets overrides for prod/staging environments |
-| `wrangler.toml`, `fly.toml` | Cloudflare Workers / Fly.io config — may contain tokens and secrets |
-| `.htpasswd`, `htpasswd` | Apache/nginx password files |
+{{SENSITIVE_READ_TABLE}}
 
 **SSH public keys** (`.pub` extension) are safe to read — they are not sensitive.
 
@@ -363,30 +264,9 @@ contents. Note the filename only.
 
 </protected>
 
-<artifact-write-rules>
+{{ARTIFACT_WRITE_RULES}}
 
-Shell and interpreter scripts may never write to `.vibe-check/**`. Use the Edit or Write tool only.
-
-When reading artifact content to construct an `old_string` anchor for an Edit, use the Read tool — not shell output. Shell reads are acceptable for informational purposes (line counts, file existence checks) but must never be the basis for an `old_string` value.
-
-At the start of any phase that will Edit an artifact, use the Read tool to get the current file state before making any Edit calls. Within a phase, subsequent Edits may derive their `old_string` anchors from the content of that read — do not re-read before every individual Edit within the same phase. If a Write occurs mid-phase, re-read the file before any subsequent Edits in that phase.
-
-</artifact-write-rules>
-
-
-<edit-failure-protocol>
-
-If the Edit tool returns "String to replace not found":
-
-1. **Do not diagnose. Do not switch to a shell script or interpreter.** Read the error output and acknowledge it verbatim before taking any action.
-2. Use the Read tool to get the current exact text of the file. Construct the shortest unique anchor (1–2 lines) from what you just read. Retry the Edit once.
-3. If the retry fails: use the Read tool to read the **entire file** fresh. Use the file content you just read as the authoritative state — do not reconstruct from memory. Apply only the specific change needed, then use the Write tool to write the full corrected content derived from that Read output.
-4. If the Write tool also fails: stop. Give the user the exact intended content to apply manually. Do not continue until the user confirms the file is correct.
-
-This ladder is mandatory. Do not improvise a recovery path not in this list.
-
-</edit-failure-protocol>
-
+{{EDIT_FAILURE_PROTOCOL}}
 
 ---
 
@@ -1418,9 +1298,9 @@ git branch --show-current
 <gate>Do not proceed past this step until you have computed the artifact path and checked whether it exists.</gate>
 
 Compute the artifact path from the branch name:
-1. Take the branch name output above. Slugify it: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. This is the branch slug.
+1. Take the branch name output above. Slugify it: {{SLUG_RULE}}. This is the branch slug.
 2. If `$ARGUMENTS` was provided:
-   - **Single path**: strip any trailing `/`, then apply the same rule (lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens) to produce the path slug.
+   - **Single path**: strip any trailing `/`, then apply the same rule ({{SLUG_RULE}}) to produce the path slug.
    - **Multiple paths**: derive a suggested name from the shared context — use the common ancestor directory if the paths share one, or combine the first two filenames without extensions (e.g. `session-middleware`). Then:
      <mandatory>Call AskUserQuestion with:
      - Question: "Multiple paths were provided. What should this scoped audit be called? This becomes part of the artifact filename. Select the suggestion or type a custom name in the Other box."
@@ -1714,7 +1594,7 @@ The subagent prompt (for reference only — already dispatched):
 
 "Run this git command and read the full output:
 
-git diff [BASE_BRANCH] -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!kubeconfig' ':!*.kubeconfig' ':!google-services.json' ':!GoogleService-Info.plist' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd' [scope paths if scoped audit]
+git diff [BASE_BRANCH] -- {{SENSITIVE_EXCLUSIONS}} [scope paths if scoped audit]
 
 Then use the Read tool to read the audit artifact at [artifact path].
 

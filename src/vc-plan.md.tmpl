@@ -1,7 +1,6 @@
-<!-- AUTO-GENERATED from src/vc-plan.md.tmpl — do not edit directly -->
 # /vc-plan
 
-<!-- version: 2026-06-18.1 -->
+<!-- version: {{VERSION}} -->
 
 The project coordinator for your entire codebase. Run it before writing code to plan a
 feature, to capture ideas before they slip away, or when you're not sure what to build next.
@@ -27,61 +26,10 @@ Checks for updates on startup — a critical update will pause the run and promp
 
 ---
 
-## Local config
-
-Silently attempt to read `.vibe-check/vc-local.conf` using the Read tool. Do not report success or failure to the user.
-
-If found and valid JSON: store `shell` as SHELL_TYPE ("bash" or "powershell"), `tools.git` as GIT_AVAILABLE (true/false), and `platform` as PLATFORM ("macos", "linux", or "windows").
-
-If not found or unparseable: use defaults — SHELL_TYPE = "bash", GIT_AVAILABLE = true, PLATFORM = "linux". Run `/vc-bootstrap` to generate the file.
-
+{{LOCAL_CONFIG}}
 ---
 
-## Version check
-
-Use the Bash tool to run: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/versions.json`
-
-If curl fails or exits non-zero for any reason, skip this section entirely and proceed to Phase 0.
-
-Read the JSON from stdout and check the `vc-plan` entry.
-
-<output-handlers>
-
-**`vc-plan` version matches `2026-06-18.1`**: proceed silently.
-
-**Newer version available, `critical` is false**:
-<mandatory>Call AskUserQuestion with:
-- Question: "A newer version of /vc-plan is available. Proceed with your current version or update now."
-- Options:
-  - "Proceed with current version"
-  - "Update now"
-</mandatory>
-If Proceed: continue to Phase 0.
-If Update now: follow the **Auto-update** steps below, then stop.
-
-**Newer version available, `critical` is true**:
-<mandatory>Call AskUserQuestion with:
-- Question: "A critical update is available for /vc-plan that fixes an important issue. Running the current version may produce incorrect results."
-- Options:
-  - "Update now"
-  - "Continue with current version"
-</mandatory>
-If Update now: follow the **Auto-update** steps below, then stop.
-If Continue: proceed to Phase 0.
-
-**Fetched version is older than `2026-06-18.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
-
-</output-handlers>
-
-**Auto-update:**
-1. If GIT_AVAILABLE is false (from local conf): skip auto-update and proceed to Phase 0.
-2. Run `git rev-parse --show-toplevel` to find the project root.
-3. Use the Bash tool to download and overwrite the skill file in one step:
-   - bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-plan.md -o "[project-root]/.claude/commands/vc-plan.md"`
-   - PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-plan.md -o "[project-root]/.claude/commands/vc-plan.md"`
-4. If curl exits 0: tell the user "Updated to the latest version — reloading skill from disk." Then use the Read tool to read `[project-root]/.claude/commands/vc-plan.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete.
-5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
-
+{{VERSION_CHECK}}
 ---
 
 <protected>
@@ -95,30 +43,9 @@ on details that can be resolved as work unfolds. 70% certainty is enough to move
 forward — the artifact can always be updated.
 </protected>
 
-<artifact-write-rules>
+{{ARTIFACT_WRITE_RULES}}
 
-Shell and interpreter scripts may never write to `.vibe-check/**`. Use the Edit or Write tool only.
-
-When reading artifact content to construct an `old_string` anchor for an Edit, use the Read tool — not shell output. Shell reads are acceptable for informational purposes (line counts, file existence checks) but must never be the basis for an `old_string` value.
-
-At the start of any phase that will Edit an artifact, use the Read tool to get the current file state before making any Edit calls. Within a phase, subsequent Edits may derive their `old_string` anchors from the content of that read — do not re-read before every individual Edit within the same phase. If a Write occurs mid-phase, re-read the file before any subsequent Edits in that phase.
-
-</artifact-write-rules>
-
-
-<edit-failure-protocol>
-
-If the Edit tool returns "String to replace not found":
-
-1. **Do not diagnose. Do not switch to a shell script or interpreter.** Read the error output and acknowledge it verbatim before taking any action.
-2. Use the Read tool to get the current exact text of the file. Construct the shortest unique anchor (1–2 lines) from what you just read. Retry the Edit once.
-3. If the retry fails: use the Read tool to read the **entire file** fresh. Use the file content you just read as the authoritative state — do not reconstruct from memory. Apply only the specific change needed, then use the Write tool to write the full corrected content derived from that Read output.
-4. If the Write tool also fails: stop. Give the user the exact intended content to apply manually. Do not continue until the user confirms the file is correct.
-
-This ladder is mandatory. Do not improvise a recovery path not in this list.
-
-</edit-failure-protocol>
-
+{{EDIT_FAILURE_PROTOCOL}}
 
 ---
 
@@ -494,7 +421,7 @@ to the problem question at the end of this phase.
 **Otherwise**, check whether a plan artifact already exists for this branch:
 
 1. Run `git branch --show-current` to get the current branch name.
-2. Slugify the branch name: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. This is the branch slug.
+2. Slugify the branch name: {{SLUG_RULE}}. This is the branch slug.
 3. Artifact path: `.vibe-check/vc-plan/[branch-slug].md`
 4. Use the Read tool to check whether the artifact exists at that path.
 
@@ -684,7 +611,7 @@ be lowercase, hyphen-separated, 2–4 words — for example: `add-user-auth`, `f
 - Options: [the 2–3 generated slugs]
 </mandatory>
 
-Take the chosen slug (or the value from Other if the user typed their own). Slugify it: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. This is `[branch-slug]`.
+Take the chosen slug (or the value from Other if the user typed their own). Slugify it: {{SLUG_RULE}}. This is `[branch-slug]`.
 
 If the slug was derived from a user-typed "Other" value: show the derived slug and ask for confirmation before creating the branch: "Your branch will be named `[final-slug]` — does that look right?" If yes: proceed. If they want a different name: ask them to type it, re-slugify, and show the result again before proceeding.
 
@@ -713,7 +640,7 @@ Update `[branch-slug]` to `[final-slug]` — all subsequent steps use this for a
 
 **If the current branch is NOT the default branch**: the branch was confirmed in Phase 0 (either
 selected from the roadmap, or the user confirmed it as the correct branch). Run
-`git branch --show-current`, then slugify: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. This is `[branch-slug]` for all subsequent steps.
+`git branch --show-current`, then slugify: {{SLUG_RULE}}. This is `[branch-slug]` for all subsequent steps.
 
 </output-handlers>
 
