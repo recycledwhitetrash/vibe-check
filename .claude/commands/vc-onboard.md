@@ -1,3 +1,4 @@
+<!-- AUTO-GENERATED from src/vc-onboard.md.tmpl — do not edit directly -->
 # /vc-onboard — Codebase Onboarding
 
 <!-- version: 2026-06-17.1 -->
@@ -98,6 +99,7 @@ waived by any phase-specific rule.
 
 </protected>
 
+
 ---
 
 <phase id="0" name="orient">
@@ -171,31 +173,56 @@ Before using the Read tool on any file, check its name against this list.
 |---|---|
 | `.env`, `.env.*` | Environment files — API keys, DB URLs, secrets |
 | `.envrc`, `.envrc.*` | direnv config — often exports secrets or tokens |
+| `local_settings.py`, `settings.py` | Django local settings — DATABASE_URL, SECRET_KEY |
+| `database.yml` | Rails database config — connection strings and credentials |
+| `application_default_credentials.json` | GCP auth token written by gcloud auth application-default login |
 | `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.p8`, `*.pkcs8` | Private keys and key containers |
 | `*.jks`, `*.keystore`, `*.ppk` | Java keystores and PuTTY private keys |
 | `id_rsa`, `id_ecdsa`, `id_ed25519`, `id_dsa` | SSH private keys (bare filename, no extension) |
 | `*.secret`, `*.secrets` | Secret files |
 | `*.vault` | Ansible vault files |
 | `*.enc` | Encrypted files |
+| `*secrets*`, `*password*`, `*passwd*` | Generic secrets, password, and credential files |
 | `.netrc` | Network credentials |
-| `.npmrc`, `.yarnrc`, `.yarnrc.yml`, `.pypirc` | Package registry auth tokens |
 | `*credentials.json`, `*service-account*.json`, `*-key.json` | GCP/service account keys |
+| `.npmrc`, `.yarnrc`, `.yarnrc.yml`, `.pypirc` | Package registry auth tokens |
 | `*.tfstate`, `*.tfstate.backup` | Terraform state — always contains passwords, connection strings, API keys |
 | `*.tfvars`, `*.tfvars.json` | Terraform variable files — commonly contain secrets |
+| `kubeconfig`, `*.kubeconfig` | Kubernetes cluster credentials, client certs, tokens |
 | `google-services.json` | Firebase Android config — contains API keys |
 | `GoogleService-Info.plist` | Firebase iOS config — contains API keys |
-| `kubeconfig`, `*.kubeconfig` | Kubernetes cluster credentials, client certs, tokens |
 | `docker-compose.override.yml`, `docker-compose.*.yml` | Docker secrets overrides for prod/staging environments |
 | `wrangler.toml`, `fly.toml` | Cloudflare Workers / Fly.io config — may contain tokens and secrets |
-| `local_settings.py`, `settings.py` | Django local/project settings — DATABASE_URL, SECRET_KEY |
-| `database.yml` | Rails database config — connection strings and credentials |
-| `application_default_credentials.json` | GCP auth token written by `gcloud auth application-default login` |
 | `.htpasswd`, `htpasswd` | Apache/nginx password files |
-| `*secrets*`, `*password*`, `*passwd*` | Generic secrets, password, and credential files |
 
 **SSH public keys** (`.pub` extension) are safe to read.
 
 </protected>
+
+<artifact-write-rules>
+
+Shell and interpreter scripts may never write to `.vibe-check/**`. Use the Edit or Write tool only.
+
+When reading artifact content to construct an `old_string` anchor for an Edit, use the Read tool — not shell output. Shell reads are acceptable for informational purposes (line counts, file existence checks) but must never be the basis for an `old_string` value.
+
+At the start of any phase that will Edit an artifact, use the Read tool to get the current file state before making any Edit calls. Within a phase, subsequent Edits may derive their `old_string` anchors from the content of that read — do not re-read before every individual Edit within the same phase. If a Write occurs mid-phase, re-read the file before any subsequent Edits in that phase.
+
+</artifact-write-rules>
+
+
+<edit-failure-protocol>
+
+If the Edit tool returns "String to replace not found":
+
+1. **Do not diagnose. Do not switch to a shell script or interpreter.** Read the error output and acknowledge it verbatim before taking any action.
+2. Use the Read tool to get the current exact text of the file. Construct the shortest unique anchor (1–2 lines) from what you just read. Retry the Edit once.
+3. If the retry fails: use the Read tool to read the **entire file** fresh. Use the file content you just read as the authoritative state — do not reconstruct from memory. Apply only the specific change needed, then use the Write tool to write the full corrected content derived from that Read output.
+4. If the Write tool also fails: stop. Give the user the exact intended content to apply manually. Do not continue until the user confirms the file is correct.
+
+This ladder is mandatory. Do not improvise a recovery path not in this list.
+
+</edit-failure-protocol>
+
 
 ---
 
@@ -401,9 +428,7 @@ number of chunks to be created.
   - "Describe changes" — describe in Other
 </mandatory>
 
-If the user requests changes: before applying, normalize all chunk names — lowercase, replace
-all non-alphanumeric characters (except existing hyphens) with hyphens, collapse consecutive
-hyphens, strip leading/trailing hyphens. Re-derive branch slugs from the normalized names.
+If the user requests changes: before applying, normalize all chunk names — lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. Re-derive branch slugs from the normalized names.
 Then re-confirm. Do not proceed until the user approves the chunk list.
 
 ### Write the onboard artifact
@@ -542,19 +567,255 @@ Skip the commit step. The codebase is already committed. Proceed to **Remote set
 
 ### Commit step (only when needed per above)
 
-**Before staging any files**, use the Read tool to check whether `.gitignore` exists in the project root.
+**Before staging any files**, run the security baseline check:
 
-**If no `.gitignore` exists:**
+### Security baseline check
+
+Use the Read tool to read `.gitignore` (if it exists). Check whether the lines `# vibe-check security baseline start` and `# vibe-check security baseline end` are both present.
+
+**Both markers present**: read the content between the markers and compare it line-by-line to the current baseline block below. If the content matches exactly: skip. If it differs:
+- Use the Edit tool to replace everything from `# vibe-check security baseline start` through `# vibe-check security baseline end` (inclusive) with the updated baseline block below.
+- Tell the user: "Updated the vibe-check security baseline in `.gitignore`."
+
+**Markers absent** (or `.gitignore` does not exist):
 <mandatory>Call AskUserQuestion with:
-- Question: "No .gitignore was found. Without one, sensitive files like .env and private keys could be committed. Add the vibe-check security baseline .gitignore before continuing?"
+- Question: "No vibe-check security baseline was found in `.gitignore`. Add the security patterns now?"
 - Options:
-  - "Yes — add the security baseline .gitignore (recommended)"
-  - "No — I'll manage this myself"
+  - "Add security patterns"
+  - "Leave it as-is"
 </mandatory>
+If Add security patterns:
+- If `.gitignore` exists: use the Edit tool to append the security baseline block to the end of `.gitignore`.
+- If `.gitignore` does not exist: use the Write tool to create it with the full template below.
+If Leave it as-is: skip.
 
-If yes: use the Write tool to create `.gitignore` with the security-baseline template from `/vc-bootstrap` (the full template covering `.env`, private keys, credentials, infrastructure secrets, OS files, and editor files).
+**Full `.gitignore` template (for new files only):**
 
-**If `.gitignore` already exists:** use the Read tool to check whether `# Security — never commit secrets or credentials` is present. If not, offer to append the security block (same AskUserQuestion as above, omit "No .gitignore was found" preamble).
+```
+# ============================================================
+# Security — never commit secrets or credentials
+# ============================================================
+
+# vibe-check security baseline start
+# Environment variables and local config
+.env
+.env.*
+.envrc
+.envrc.*
+local_settings.py
+settings.py
+database.yml
+application_default_credentials.json
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+*.pkcs8
+*.jks
+*.keystore
+*.ppk
+id_rsa
+id_ecdsa
+id_ed25519
+id_dsa
+
+# Secret stores and credential files
+*.secret
+*.secrets
+*.vault
+*.enc
+*secrets*
+*password*
+*passwd*
+.netrc
+*credentials.json
+*service-account*.json
+*-key.json
+
+# Package manager auth
+.npmrc
+.yarnrc
+.yarnrc.yml
+.pypirc
+
+# Infrastructure secrets
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+kubeconfig
+*.kubeconfig
+google-services.json
+GoogleService-Info.plist
+docker-compose.override.yml
+docker-compose.*.yml
+wrangler.toml
+fly.toml
+.htpasswd
+htpasswd
+# vibe-check security baseline end
+
+# ============================================================
+# Installed packages and dependencies (never commit these)
+# ============================================================
+
+node_modules/
+.venv/
+venv/
+env/
+.env/
+__pycache__/
+*.pyc
+.bundle/
+vendor/bundle/
+.gradle/
+build/
+dist/
+target/
+
+# ============================================================
+# Framework and build tool caches
+# ============================================================
+
+.vite/
+.next/
+.nuxt/
+.svelte-kit/
+.parcel-cache/
+.turbo/
+.cache/
+
+# ============================================================
+# Test output
+# ============================================================
+
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+cypress/videos/
+cypress/screenshots/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ============================================================
+# Operating system files
+# ============================================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Editor files
+# ============================================================
+
+.idea/
+# .vscode/    ← uncomment this line to exclude VS Code settings from git
+
+# ============================================================
+# vibe-check local config (machine-specific, not for sharing)
+# ============================================================
+
+.vibe-check/vc-local.conf
+
+# ============================================================
+# How to add your own patterns
+# ============================================================
+#
+# Ignore a specific file:
+#   my-notes.txt
+#
+# Ignore all files with a given extension:
+#   *.log
+#
+# Ignore a whole folder and everything inside it:
+#   my-folder/
+#
+# Ignore a file only in the project root (not in subfolders):
+#   /config.local.json
+#
+# Ignore everything in a folder but keep the folder itself:
+#   temp/*
+#   !temp/.gitkeep
+
+```
+
+After any write or update: tell the user "If VS Code's Source Control panel still shows files that should now be ignored, click the **refresh icon** (↺) at the top of the Source Control panel — VS Code doesn't always pick up `.gitignore` changes automatically."
+
+**Current security baseline block:**
+
+```
+# vibe-check security baseline start
+# Environment variables and local config
+.env
+.env.*
+.envrc
+.envrc.*
+local_settings.py
+settings.py
+database.yml
+application_default_credentials.json
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+*.pkcs8
+*.jks
+*.keystore
+*.ppk
+id_rsa
+id_ecdsa
+id_ed25519
+id_dsa
+
+# Secret stores and credential files
+*.secret
+*.secrets
+*.vault
+*.enc
+*secrets*
+*password*
+*passwd*
+.netrc
+*credentials.json
+*service-account*.json
+*-key.json
+
+# Package manager auth
+.npmrc
+.yarnrc
+.yarnrc.yml
+.pypirc
+
+# Infrastructure secrets
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+kubeconfig
+*.kubeconfig
+google-services.json
+GoogleService-Info.plist
+docker-compose.override.yml
+docker-compose.*.yml
+wrangler.toml
+fly.toml
+.htpasswd
+htpasswd
+# vibe-check security baseline end
+```
+
 
 Then stage and commit:
 

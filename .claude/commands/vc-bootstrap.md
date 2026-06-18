@@ -1,3 +1,4 @@
+<!-- AUTO-GENERATED from src/vc-bootstrap.md.tmpl — do not edit directly -->
 # /vc-bootstrap — Machine Setup
 
 <!-- version: 2026-06-17.2 -->
@@ -57,6 +58,31 @@ If Continue: proceed to Phase 0.
 5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
+
+<artifact-write-rules>
+
+Shell and interpreter scripts may never write to `.vibe-check/**`. Use the Edit or Write tool only.
+
+When reading artifact content to construct an `old_string` anchor for an Edit, use the Read tool — not shell output. Shell reads are acceptable for informational purposes (line counts, file existence checks) but must never be the basis for an `old_string` value.
+
+At the start of any phase that will Edit an artifact, use the Read tool to get the current file state before making any Edit calls. Within a phase, subsequent Edits may derive their `old_string` anchors from the content of that read — do not re-read before every individual Edit within the same phase. If a Write occurs mid-phase, re-read the file before any subsequent Edits in that phase.
+
+</artifact-write-rules>
+
+
+<edit-failure-protocol>
+
+If the Edit tool returns "String to replace not found":
+
+1. **Do not diagnose. Do not switch to a shell script or interpreter.** Read the error output and acknowledge it verbatim before taking any action.
+2. Use the Read tool to get the current exact text of the file. Construct the shortest unique anchor (1–2 lines) from what you just read. Retry the Edit once.
+3. If the retry fails: use the Read tool to read the **entire file** fresh. Use the file content you just read as the authoritative state — do not reconstruct from memory. Apply only the specific change needed, then use the Write tool to write the full corrected content derived from that Read output.
+4. If the Write tool also fails: stop. Give the user the exact intended content to apply manually. Do not continue until the user confirms the file is correct.
+
+This ladder is mandatory. Do not improvise a recovery path not in this list.
+
+</edit-failure-protocol>
+
 
 <phase id="0" name="detect">
 
@@ -316,37 +342,40 @@ Gitleaks scans your code for accidentally committed secrets before they reach Gi
 
 ### .gitignore
 
-Check whether `.gitignore` exists in the current directory using the Read tool.
+Use the Read tool to check whether `.gitignore` exists in the current directory.
 
-**If no `.gitignore` exists:** use the Write tool to create `.gitignore` with the
-security-baseline template below.
+**If no `.gitignore` exists:** use the Write tool to create it with the full baseline template below. Tell the user "Created `.gitignore` with the security baseline." Then tell the user "If VS Code's Source Control panel still shows files that should now be ignored, click the **refresh icon** (↺) at the top of the Source Control panel — VS Code doesn't always pick up `.gitignore` changes automatically."
 
-**If `.gitignore` already exists:** Use the Read tool to read it and check whether the
-line `# Security — never commit secrets or credentials` is already present.
+**If `.gitignore` already exists:**
 
-If the marker is already present: the security block was added in a previous run — skip
-without asking.
+### Security baseline check
 
-If the marker is not present:
+Use the Read tool to read `.gitignore` (if it exists). Check whether the lines `# vibe-check security baseline start` and `# vibe-check security baseline end` are both present.
+
+**Both markers present**: read the content between the markers and compare it line-by-line to the current baseline block below. If the content matches exactly: skip. If it differs:
+- Use the Edit tool to replace everything from `# vibe-check security baseline start` through `# vibe-check security baseline end` (inclusive) with the updated baseline block below.
+- Tell the user: "Updated the vibe-check security baseline in `.gitignore`."
+
+**Markers absent** (or `.gitignore` does not exist):
 <mandatory>Call AskUserQuestion with:
-- Question: "A .gitignore already exists in this project. Add the security baseline patterns to it, or leave it as-is?"
+- Question: "No vibe-check security baseline was found in `.gitignore`. Add the security patterns now?"
 - Options:
   - "Add security patterns"
   - "Leave it as-is"
 </mandatory>
-If Add security patterns: use the Edit tool to append the security section to the end of
-the existing file.
+If Add security patterns:
+- If `.gitignore` exists: use the Edit tool to append the security baseline block to the end of `.gitignore`.
+- If `.gitignore` does not exist: use the Write tool to create it with the full template below.
 If Leave it as-is: skip.
 
-After writing or updating `.gitignore`: tell the user "If VS Code's Source Control panel still shows files that should now be ignored, click the **refresh icon** (↺) at the top of the Source Control panel — VS Code doesn't always pick up .gitignore changes automatically."
-
-**Security-baseline `.gitignore` template:**
+**Full `.gitignore` template (for new files only):**
 
 ```
 # ============================================================
 # Security — never commit secrets or credentials
 # ============================================================
 
+# vibe-check security baseline start
 # Environment variables and local config
 .env
 .env.*
@@ -385,7 +414,7 @@ id_dsa
 *service-account*.json
 *-key.json
 
-# Package manager auth (can contain registry tokens)
+# Package manager auth
 .npmrc
 .yarnrc
 .yarnrc.yml
@@ -406,6 +435,7 @@ wrangler.toml
 fly.toml
 .htpasswd
 htpasswd
+# vibe-check security baseline end
 
 # ============================================================
 # Installed packages and dependencies (never commit these)
@@ -494,6 +524,235 @@ desktop.ini
 # Ignore everything in a folder but keep the folder itself:
 #   temp/*
 #   !temp/.gitkeep
+
+```
+
+After any write or update: tell the user "If VS Code's Source Control panel still shows files that should now be ignored, click the **refresh icon** (↺) at the top of the Source Control panel — VS Code doesn't always pick up `.gitignore` changes automatically."
+
+**Current security baseline block:**
+
+```
+# vibe-check security baseline start
+# Environment variables and local config
+.env
+.env.*
+.envrc
+.envrc.*
+local_settings.py
+settings.py
+database.yml
+application_default_credentials.json
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+*.pkcs8
+*.jks
+*.keystore
+*.ppk
+id_rsa
+id_ecdsa
+id_ed25519
+id_dsa
+
+# Secret stores and credential files
+*.secret
+*.secrets
+*.vault
+*.enc
+*secrets*
+*password*
+*passwd*
+.netrc
+*credentials.json
+*service-account*.json
+*-key.json
+
+# Package manager auth
+.npmrc
+.yarnrc
+.yarnrc.yml
+.pypirc
+
+# Infrastructure secrets
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+kubeconfig
+*.kubeconfig
+google-services.json
+GoogleService-Info.plist
+docker-compose.override.yml
+docker-compose.*.yml
+wrangler.toml
+fly.toml
+.htpasswd
+htpasswd
+# vibe-check security baseline end
+```
+
+
+**Full `.gitignore` template (for new files only):**
+
+```
+# ============================================================
+# Security — never commit secrets or credentials
+# ============================================================
+
+# vibe-check security baseline start
+# Environment variables and local config
+.env
+.env.*
+.envrc
+.envrc.*
+local_settings.py
+settings.py
+database.yml
+application_default_credentials.json
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+*.pkcs8
+*.jks
+*.keystore
+*.ppk
+id_rsa
+id_ecdsa
+id_ed25519
+id_dsa
+
+# Secret stores and credential files
+*.secret
+*.secrets
+*.vault
+*.enc
+*secrets*
+*password*
+*passwd*
+.netrc
+*credentials.json
+*service-account*.json
+*-key.json
+
+# Package manager auth
+.npmrc
+.yarnrc
+.yarnrc.yml
+.pypirc
+
+# Infrastructure secrets
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+kubeconfig
+*.kubeconfig
+google-services.json
+GoogleService-Info.plist
+docker-compose.override.yml
+docker-compose.*.yml
+wrangler.toml
+fly.toml
+.htpasswd
+htpasswd
+# vibe-check security baseline end
+
+# ============================================================
+# Installed packages and dependencies (never commit these)
+# ============================================================
+
+node_modules/
+.venv/
+venv/
+env/
+.env/
+__pycache__/
+*.pyc
+.bundle/
+vendor/bundle/
+.gradle/
+build/
+dist/
+target/
+
+# ============================================================
+# Framework and build tool caches
+# ============================================================
+
+.vite/
+.next/
+.nuxt/
+.svelte-kit/
+.parcel-cache/
+.turbo/
+.cache/
+
+# ============================================================
+# Test output
+# ============================================================
+
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+cypress/videos/
+cypress/screenshots/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ============================================================
+# Operating system files
+# ============================================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Editor files
+# ============================================================
+
+.idea/
+# .vscode/    ← uncomment this line to exclude VS Code settings from git
+
+# ============================================================
+# vibe-check local config (machine-specific, not for sharing)
+# ============================================================
+
+.vibe-check/vc-local.conf
+
+# ============================================================
+# How to add your own patterns
+# ============================================================
+#
+# Ignore a specific file:
+#   my-notes.txt
+#
+# Ignore all files with a given extension:
+#   *.log
+#
+# Ignore a whole folder and everything inside it:
+#   my-folder/
+#
+# Ignore a file only in the project root (not in subfolders):
+#   /config.local.json
+#
+# Ignore everything in a folder but keep the folder itself:
+#   temp/*
+#   !temp/.gitkeep
+
 ```
 
 ### Clean up tracked-but-now-ignored files

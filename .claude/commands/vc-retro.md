@@ -1,6 +1,7 @@
+<!-- AUTO-GENERATED from src/vc-retro.md.tmpl — do not edit directly -->
 # /vc-retro
 
-<!-- version: 2026-06-17.1 -->
+<!-- version: 2026-06-18.1 -->
 
 A time-based retrospective skill that reviews your git history for the period since your
 last retro (up to 31 days). Quantifies what shipped, identifies hotspot files, checks
@@ -37,7 +38,7 @@ Read the JSON from stdout and check the `vc-retro` entry.
 
 <output-handlers>
 
-**`vc-retro` version matches `2026-06-17.1`**: proceed silently.
+**`vc-retro` version matches `2026-06-18.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -59,7 +60,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-17.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-18.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -73,6 +74,31 @@ If Continue: proceed to Phase 0.
 5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
+
+<artifact-write-rules>
+
+Shell and interpreter scripts may never write to `.vibe-check/**`. Use the Edit or Write tool only.
+
+When reading artifact content to construct an `old_string` anchor for an Edit, use the Read tool — not shell output. Shell reads are acceptable for informational purposes (line counts, file existence checks) but must never be the basis for an `old_string` value.
+
+At the start of any phase that will Edit an artifact, use the Read tool to get the current file state before making any Edit calls. Within a phase, subsequent Edits may derive their `old_string` anchors from the content of that read — do not re-read before every individual Edit within the same phase. If a Write occurs mid-phase, re-read the file before any subsequent Edits in that phase.
+
+</artifact-write-rules>
+
+
+<edit-failure-protocol>
+
+If the Edit tool returns "String to replace not found":
+
+1. **Do not diagnose. Do not switch to a shell script or interpreter.** Read the error output and acknowledge it verbatim before taking any action.
+2. Use the Read tool to get the current exact text of the file. Construct the shortest unique anchor (1–2 lines) from what you just read. Retry the Edit once.
+3. If the retry fails: use the Read tool to read the **entire file** fresh. Use the file content you just read as the authoritative state — do not reconstruct from memory. Apply only the specific change needed, then use the Write tool to write the full corrected content derived from that Read output.
+4. If the Write tool also fails: stop. Give the user the exact intended content to apply manually. Do not continue until the user confirms the file is correct.
+
+This ladder is mandatory. Do not improvise a recovery path not in this list.
+
+</edit-failure-protocol>
+
 
 <phase id="0" name="orientation">
 
@@ -98,9 +124,7 @@ If `git config user.name` returned empty: tell the user their git name is not co
 
 ### Determine the time window
 
-1. Slugify the git user name: lowercase, replace any character that is not alphanumeric
-   or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. This
-   is the user slug.
+1. Slugify the git user name: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. This is the user slug.
 2. Use the Glob tool to list files matching `.vibe-check/vc-retro/*.md`.
 3. If files exist, filter to only those whose filename ends in `--[user-slug].md`.
    Ignore files from other authors. From the filtered list, identify the most recent
@@ -242,7 +266,7 @@ If no roadmap exists, note it plainly: work is shipping with no planning record 
 vs. a few large features; work concentrated in one area vs. spread across the codebase;
 consistent commit cadence vs. bursts. Describe what you see.
 
-**Carry-forward debt** — use the Glob tool to list all files matching `.vibe-check/vc-audit/*.md`. For each, scan for lines beginning with `D-` in the Deferred section. If any deferred findings exist, list them here: branch slug, finding ID, and description. If none exist, note "No deferred findings." This section is always present so debt doesn't silently disappear between retros.
+**Carry-forward debt** — use the Glob tool to list all files matching `.vibe-check/vc-audit/*.md`. For each, use the Read tool to scan the findings table for rows where the Status column contains `Deferred`. If any deferred findings exist, list them here: branch slug (from the filename), finding ID (F-NNN), and description. If none exist, note "No deferred findings." This section is always present so debt doesn't silently disappear between retros.
 
 If **previous period data** is available (loaded in Phase 0), add a "Compared to last
 period" line under each relevant section showing the delta. For example:
@@ -448,7 +472,7 @@ If no previous period data is available, omit this section entirely.]
 
 ## Carry-forward debt
 
-[List of deferred findings from all audit artifacts — D-NNN (branch-slug): description — or "No deferred findings."]
+[List of deferred findings from all audit artifacts — F-NNN (branch-slug): description — or "No deferred findings."]
 
 ---
 

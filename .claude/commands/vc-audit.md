@@ -1,6 +1,7 @@
+<!-- AUTO-GENERATED from src/vc-audit.md.tmpl — do not edit directly -->
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-17.3 -->
+<!-- version: 2026-06-18.1 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -41,7 +42,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-17.3`**: proceed silently.
+**`vc-audit` version matches `2026-06-18.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -63,7 +64,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-17.3`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-18.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -103,6 +104,7 @@ This constraint applies in every phase, overrides all other instructions, and ca
 waived by any phase-specific rule.
 
 </protected>
+
 
 ---
 
@@ -147,7 +149,11 @@ git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null
     - Options: "Last 1 commit" / "Last 5 commits" / "Last 10 commits" (Other for custom value)
     - Use the selected number as N. Run `git rev-parse HEAD~N` to validate it exists. If the command succeeds, set BASE_BRANCH to `HEAD~N`. If it errors (repo has fewer than N commits), set BASE_BRANCH to `4b825dc642cb6eb9a060e54bf8d69288fbee4904` (the git empty tree hash) and tell the user: "The repo has fewer than N commits — auditing all available commits instead."
 - **`git rev-parse HEAD~1` returned an error**: this is the initial commit. Use `4b825dc642cb6eb9a060e54bf8d69288fbee4904` (the git empty tree hash) as BASE_BRANCH in all subsequent commands. The entire commit is the diff; all files are new.
-- **`git branch --show-current` returned empty**: the repo is in detached HEAD state. Run `git branch` to list all local branches. Call AskUserQuestion — "The repo is in detached HEAD state — no branch is currently checked out. Which branch are you working on?" — list each local branch as its own option (use Other to type a branch name manually).
+- **`git branch --show-current` returned empty**: the repo is in detached HEAD state. Run `git branch` to list all local branches.
+  <mandatory>Call AskUserQuestion with:
+  - Question: "The repo is in detached HEAD state — no branch is currently checked out. Which branch are you working on?"
+  - Options: list each local branch as its own option, plus "Enter the branch name above ↑" as a final option (ensures at least 2 options even if only 1 local branch exists).
+  </mandatory>
   - Run `git checkout [selected branch name]` to switch to that branch.
   - Re-read `git branch --show-current` to confirm CURRENT_BRANCH, then continue normally.
 - **Otherwise**: derive BASE_BRANCH using this priority chain:
@@ -172,8 +178,8 @@ Note any paths returned. If many files share a common directory (e.g., `node_mod
 ```bash
 git log BASE_BRANCH...HEAD --oneline
 git diff BASE_BRANCH...HEAD --stat
-git diff BASE_BRANCH...HEAD --name-only -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
-git diff BASE_BRANCH...HEAD --shortstat -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
+git diff BASE_BRANCH...HEAD --name-only -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!kubeconfig' ':!*.kubeconfig' ':!google-services.json' ':!GoogleService-Info.plist' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
+git diff BASE_BRANCH...HEAD --shortstat -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!kubeconfig' ':!*.kubeconfig' ':!google-services.json' ':!GoogleService-Info.plist' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions] [scope paths if $ARGUMENTS provided]
 git status --porcelain
 ```
 
@@ -239,7 +245,7 @@ what each file does and how the changes interact before selecting lenses.
 Sensitive files are excluded from the diff automatically (see Sensitive File Protection).
 
 ```bash
-git diff BASE_BRANCH -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions — from `git ls-files --cached --ignored --exclude-standard` above]
+git diff BASE_BRANCH -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!kubeconfig' ':!*.kubeconfig' ':!google-services.json' ':!GoogleService-Info.plist' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**' [gitignored tracked files as :!path exclusions — from `git ls-files --cached --ignored --exclude-standard` above]
 ```
 
 Substitute BASE_BRANCH with the value determined above. For an initial commit session, substitute `4b825dc642cb6eb9a060e54bf8d69288fbee4904`. This command (`git diff BASE_BRANCH`) captures committed changes, staged changes, and unstaged tracked changes in one shot. If UNTRACKED_FILES is non-empty, use the Read tool to read those files separately — no diff exists for files never added to git.
@@ -280,7 +286,7 @@ From the file list and diff, identify which of the following stacks are in play.
 
 Check whether a vc-plan artifact exists for this branch:
 
-1. Slugify the current branch name: lowercase it, replace every `/` and space with `-`, replace any other non-alphanumeric character (`.`, `_`, `'`, `~`, etc.) with `-`, then collapse any run of consecutive hyphens to a single `-`, and strip any leading or trailing hyphens.
+1. Slugify the current branch name: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens.
 2. Use the Read tool to check for `.vibe-check/vc-plan/[branch-slug].md`.
 
 <output-handlers>
@@ -322,24 +328,27 @@ Before using the Read tool on any file, check its name against this list.
 |---|---|
 | `.env`, `.env.*` | Environment files — API keys, DB URLs, secrets |
 | `.envrc`, `.envrc.*` | direnv config — often exports secrets or tokens |
+| `local_settings.py`, `settings.py` | Django local settings — DATABASE_URL, SECRET_KEY |
+| `database.yml` | Rails database config — connection strings and credentials |
+| `application_default_credentials.json` | GCP auth token written by gcloud auth application-default login |
 | `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.p8`, `*.pkcs8` | Private keys and key containers |
-| `*.jks`, `*.keystore` | Java keystores |
+| `*.jks`, `*.keystore`, `*.ppk` | Java keystores and PuTTY private keys |
 | `id_rsa`, `id_ecdsa`, `id_ed25519`, `id_dsa` | SSH private keys (bare filename, no extension) |
 | `*.secret`, `*.secrets` | Secret files |
 | `*.vault` | Ansible vault files |
+| `*.enc` | Encrypted files |
+| `*secrets*`, `*password*`, `*passwd*` | Generic secrets, password, and credential files |
 | `.netrc` | Network credentials |
-| `.npmrc`, `.yarnrc`, `.yarnrc.yml`, `.pypirc` | Package registry auth tokens |
 | `*credentials.json`, `*service-account*.json`, `*-key.json` | GCP/service account keys |
+| `.npmrc`, `.yarnrc`, `.yarnrc.yml`, `.pypirc` | Package registry auth tokens |
 | `*.tfstate`, `*.tfstate.backup` | Terraform state — always contains passwords, connection strings, API keys |
 | `*.tfvars`, `*.tfvars.json` | Terraform variable files — commonly contain secrets |
+| `kubeconfig`, `*.kubeconfig` | Kubernetes cluster credentials, client certs, tokens |
 | `google-services.json` | Firebase Android config — contains API keys |
 | `GoogleService-Info.plist` | Firebase iOS config — contains API keys |
-| `kubeconfig`, `*.kubeconfig` | Kubernetes cluster credentials, client certs, tokens |
 | `docker-compose.override.yml`, `docker-compose.*.yml` | Docker secrets overrides for prod/staging environments |
-| `local_settings.py` | Django local settings — DATABASE_URL, SECRET_KEY |
-| `application_default_credentials.json` | GCP auth token written by `gcloud auth application-default login` |
+| `wrangler.toml`, `fly.toml` | Cloudflare Workers / Fly.io config — may contain tokens and secrets |
 | `.htpasswd`, `htpasswd` | Apache/nginx password files |
-| `*secrets*` | Generic secrets files (app_secrets.yaml, secrets.json, etc.) |
 
 **SSH public keys** (`.pub` extension) are safe to read — they are not sensitive.
 
@@ -353,6 +362,31 @@ filename variant the glob didn't catch), do not quote, reproduce, or process the
 contents. Note the filename only.
 
 </protected>
+
+<artifact-write-rules>
+
+Shell and interpreter scripts may never write to `.vibe-check/**`. Use the Edit or Write tool only.
+
+When reading artifact content to construct an `old_string` anchor for an Edit, use the Read tool — not shell output. Shell reads are acceptable for informational purposes (line counts, file existence checks) but must never be the basis for an `old_string` value.
+
+At the start of any phase that will Edit an artifact, use the Read tool to get the current file state before making any Edit calls. Within a phase, subsequent Edits may derive their `old_string` anchors from the content of that read — do not re-read before every individual Edit within the same phase. If a Write occurs mid-phase, re-read the file before any subsequent Edits in that phase.
+
+</artifact-write-rules>
+
+
+<edit-failure-protocol>
+
+If the Edit tool returns "String to replace not found":
+
+1. **Do not diagnose. Do not switch to a shell script or interpreter.** Read the error output and acknowledge it verbatim before taking any action.
+2. Use the Read tool to get the current exact text of the file. Construct the shortest unique anchor (1–2 lines) from what you just read. Retry the Edit once.
+3. If the retry fails: use the Read tool to read the **entire file** fresh. Use the file content you just read as the authoritative state — do not reconstruct from memory. Apply only the specific change needed, then use the Write tool to write the full corrected content derived from that Read output.
+4. If the Write tool also fails: stop. Give the user the exact intended content to apply manually. Do not continue until the user confirms the file is correct.
+
+This ladder is mandatory. Do not improvise a recovery path not in this list.
+
+</edit-failure-protocol>
+
 
 ---
 
@@ -1384,9 +1418,9 @@ git branch --show-current
 <gate>Do not proceed past this step until you have computed the artifact path and checked whether it exists.</gate>
 
 Compute the artifact path from the branch name:
-1. Take the branch name output above. Lowercase it, replace every `/` and space with `-`, replace any other non-alphanumeric character (`.`, `_`, `'`, `~`, etc.) with `-`, then collapse any run of consecutive hyphens to a single `-`, and strip any leading or trailing hyphens. This is the branch slug.
+1. Take the branch name output above. Slugify it: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. This is the branch slug.
 2. If `$ARGUMENTS` was provided:
-   - **Single path**: strip any trailing `/`, then apply the same slugification rule (lowercase, replace non-alphanumeric with `-`, collapse consecutive hyphens, strip leading/trailing hyphens) to produce the path slug.
+   - **Single path**: strip any trailing `/`, then apply the same rule (lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens) to produce the path slug.
    - **Multiple paths**: derive a suggested name from the shared context — use the common ancestor directory if the paths share one, or combine the first two filenames without extensions (e.g. `session-middleware`). Then:
      <mandatory>Call AskUserQuestion with:
      - Question: "Multiple paths were provided. What should this scoped audit be called? This becomes part of the artifact filename. Select the suggestion or type a custom name in the Other box."
@@ -1417,7 +1451,7 @@ does not.
 If "Start a new audit": use the Write tool to overwrite the existing artifact with a fresh header (follow the "artifact does not exist" path below — ask about subagents, then create). Do not continue until the new artifact exists on disk.
 If "Continue from where I stopped": proceed as if Status were IN PROGRESS.
 
-**If Status is `IN PROGRESS` (or "Continue from where I stopped" was chosen):** Note the current pass number, all open findings, all dismissed items, all deferred items. Note the `**Subagents:**` field from the artifact header — this is the adversarial subagent setting for this audit. Do not ask the user about subagents again. Continue from where the last pass left off — re-walk every surface from scratch, but use prior finding numbers for known issues.
+**If Status is `IN PROGRESS` (or "Continue from where I stopped" was chosen):** Note the current pass number and all rows with Status = Open in the findings table. Note the `**Subagents:**` field from the artifact header — this is the adversarial subagent setting for this audit. Do not ask the user about subagents again. Continue from where the last pass left off — re-walk every surface from scratch, but use prior finding numbers for known issues.
 
 **If the artifact does not exist:** Before creating it, ask about subagent configuration:
 
@@ -1430,27 +1464,9 @@ If "Continue from where I stopped": proceed as if Status were IN PROGRESS.
 
 Record the answer. Then create the artifact with the header below, setting `**Subagents:**` to `enabled` or `disabled` based on the answer. Write it to the computed artifact path using the Write tool. The Write tool creates parent directories automatically. Do not continue until the file exists on disk.
 
-### Numbering conventions
+### Numbering convention
 
-Each section uses its own prefix and its own counter, starting at 001 when the artifact
-is first created. Pad to three digits. **Counters are per-artifact, not per-pass** — if
-pass 1 ends with F-003, pass 2 continues from F-004. Never reset, never reuse a number
-within a prefix, even after items are moved or removed.
-
-| Prefix | Section | Meaning |
-|---|---|---|
-| `F-NNN` | Open | Active finding — unresolved, needs action |
-| `D-NNN` | Deferred | Parked with explicit approval — real issue, not actioned yet |
-| `X-NNN` | Dismissed | Intentionally ignored — not actionable, with stated reason |
-| `R-NNN` | Resolved | Fixed and verified — closed finding |
-
-When a finding transitions between sections, the new entry cross-references every prior number in the chain — always include the complete history, no matter how many steps the finding has moved through:
-- F-003 gets fixed → `R-001 (was F-003)` in Resolved; remove F-003 from Open
-- F-003 gets deferred → `D-001 (was F-003)` in Deferred; remove F-003 from Open
-- Something noticed but never opened as a finding → `X-001` directly in Dismissed
-- D-001 (was F-003) eventually gets fixed → `R-004 (was D-001, F-003)` in Resolved; remove D-001 from Deferred
-
-**Rule:** every transition entry must include the full origin chain. A reviewer must be able to trace any R-NNN or X-NNN back to the original F-NNN through the cross-references alone. Never drop an earlier number from the chain.
+All findings use the `F-NNN` prefix. The counter starts at 001 when the artifact is first created, pads to three digits, and is per-artifact not per-pass — if pass 1 ends with F-003, pass 2 continues from F-004. Never reset or reuse a number. A finding's ID never changes once assigned — status changes are recorded in the Status column of the findings table, not by reassigning a new ID.
 
 ```markdown
 # Audit: [branch name]
@@ -1478,17 +1494,8 @@ When a finding transitions between sections, the new entry cross-references ever
 
 ## Findings
 
-### Open (F-NNN)
-_none yet_
-
-### Deferred (D-NNN)
-_none yet_
-
-### Dismissed (X-NNN)
-_none yet_
-
-### Resolved (R-NNN)
-_none yet_
+| ID | Pass | Severity | Location | Description | Status |
+|---|---|---|---|---|---|
 
 ---
 
@@ -1512,7 +1519,7 @@ _none yet_
    - **Roadmap**: use the Read tool to check `.vibe-check/vc-plan/roadmap.md`. If it exists and has a `**Base branch:**` line, use that value.
    - **Derive**: run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it returns a value, strip the `refs/remotes/origin/` prefix directly — do not use shell utilities. If it returns nothing: run `git remote set-head origin -a 2>/dev/null`, then re-run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it now returns a value, strip the prefix. If still nothing: run `git for-each-ref --format='%(refname:short)' refs/heads/` and identify the default branch (priority: `main` > `master` > `develop`). Then call AskUserQuestion — "I derived `[branch]` as the base branch for this audit. Is that correct?" — Options: "Yes — use [branch]" / "No — use a different branch (Other)". Use the confirmed or entered value as BASE_BRANCH.
 2. If the most recent pass entry in the pass log shows `— in progress`, that pass did not complete — most likely due to context compaction. Check the artifact for a `## Pass N progress` section immediately following that marker (N = the in-progress pass number). If found: read the `[x]`/`[ ]` markers — `[x]` surfaces were already walked and their findings are already written to the artifact; `[ ]` surfaces were not. Store the `[ ]` surfaces as REMAINING_SURFACES. Note whether `subagent:` shows `dispatched` or `pending`. If `## Pass N progress` is not found (compaction happened before the section was written): restart the pass from the beginning.
-3. Derive the current pass number, all open findings, and the clean pass count from the artifact. Do not rely on conversation memory. Also scan the entire artifact for the highest F-NNN number referenced anywhere — including in Resolved cross-references like `(was F-011)` and Deferred entries. Store this value as NEXT_F_NUM. All new findings in this pass must be numbered starting from NEXT_F_NUM + 1. Re-read the full surface map section from the artifact and store every surface listed. If resuming from a `## Pass N progress` section (step 2 above), only the `[ ]` surfaces (REMAINING_SURFACES) need to be walked this session — `[x]` surfaces are already complete.
+3. Derive the current pass number, all Open-status findings, and the clean pass count from the artifact. Do not rely on conversation memory. Scan the ID column of the findings table for the highest F-NNN number. Store this value as NEXT_F_NUM. All new findings in this pass must be numbered starting from NEXT_F_NUM + 1. Re-read the full surface map section from the artifact and store every surface listed. If resuming from a `## Pass N progress` section (step 2 above), only the `[ ]` surfaces (REMAINING_SURFACES) need to be walked this session — `[x]` surfaces are already complete.
 4. Read the `**Subagents:**` field from the artifact header. Do not ask the user about subagents again — this setting was recorded when the audit was created.
 5. Re-derive FILE_READ_MODE and UNTRACKED_FILES: run `git diff BASE_BRANCH...HEAD --shortstat`. If non-empty: normal diff mode. If empty: run `git status --porcelain`, filter out `.vibe-check/` and `.claude/` paths. If any M/A/R entries remain: working tree changes exist, proceed in normal diff mode. Store `??` entries (filtered by sensitive exclusions) as UNTRACKED_FILES. If both committed shortstat and filtered status are empty AND the plan stub at `.vibe-check/vc-plan/[branch-slug].md` contains a `## Chunk files` section: FILE_READ_MODE = true.
 
@@ -1596,14 +1603,16 @@ are the audit surface, not a diff.
   this by assigning 5–6 to unquoted findings. Do not run code to simulate or verify a finding — if the issue is not evident from reading the code, use the Read tool to pull in more context, not a shell interpreter.
 - **Record each finding in the artifact immediately when discovered.** Do not accumulate
   findings in memory and batch them for Phase 5. For each finding: use the Read tool to read
-  the current Open section of the artifact and identify the last line currently in that section.
-  Use that line as the `old_string` anchor in the Edit tool to append the new F-NNN entry after
-  it. Never use a cached anchor from a previous write — always re-read first. This keeps
-  findings in numeric order regardless of which surface they came from. After each write, use
-  the Read tool to verify the finding appears in the artifact. If it does not, re-attempt once.
-  If it still fails, tell the user and provide the exact finding text to add manually: "Could
-  not write [F-NNN] to the artifact — please add this line to the Open section manually:
-  [full F-NNN entry text]."
+  the current findings table and identify the last row (or the header separator line
+  `|---|---|---|---|---|---|` if the table has no data rows yet). Use that as the `old_string`
+  anchor in the Edit tool to append the new F-NNN row after it. New rows always have
+  Status = Open. Row format:
+  `| F-NNN | pass N | severity (conf) | file:line | description | Open |`
+  Never use a cached anchor from a previous write — always re-read the table before each
+  append. After each write, use the Read tool to verify the row appears in the artifact. If
+  it does not, re-attempt once. If it still fails, tell the user and provide the exact row to
+  add manually: "Could not write [F-NNN] to the artifact — please add this row to the findings
+  table manually: `| F-NNN | pass N | severity (conf) | file:line | description | Open |`"
 - **If a finding predates this branch** (the issue exists in code not changed by this diff),
   add `[pre-existing]` inline to the finding entry. Pre-existing issues are still surfaced
   and still require action.
@@ -1654,11 +1663,11 @@ Add the following block at the **end of the artifact file**. Use the Read tool f
 - F-003 | pass 1 | high (9/10) | src/export.ts:47 — CSV row written before checksum verified
 
 **Dismissed** (must be filled; "none" requires explicit statement):
-- X-004 | src/config.ts:12 — hardcoded timeout is intentional per README, not a secret
+- F-004 | src/config.ts:12 — hardcoded timeout is intentional per README, not a secret
   _(or: none — nothing noticed that warranted dismissal this pass)_
 
 **Want to skip** (real findings, requesting deferral approval):
-- [describe the finding, propose D-NNN, state reasoning]
+- [F-NNN — describe the finding and state reasoning for deferral]
   _(or: none)_
 
 **Remaining surface area**:
@@ -1669,26 +1678,14 @@ Add the following block at the **end of the artifact file**. Use the Read tool f
 A surface with no evidence entry is not considered walked. A pass is not clean unless
 every surface in the surface map has a receipt entry with at least one file:line citation.
 
-Update the Findings sections after each pass:
-- **New finding** → assign the next `F-NNN` number; include the pass it was found in; add to Open:
-  `F-004 | pass 2 | medium (7/10) | file:line — description`
+**Every finding description must include three things:**
+1. What the problem is (specific to this code, not a category label)
+2. What it allows or causes (the concrete consequence)
+3. The fix direction (what change would address it)
 
-  **Every finding description must include three things:**
-  1. What the problem is (specific to this code, not a category label)
-  2. What it allows or causes (the concrete consequence)
-  3. The fix direction (what change would address it)
+Example row: `| F-004 | pass 2 | medium (7/10) | src/api/users.ts:83 | [pre-existing] user lookup does not validate that the returned row belongs to the authenticated tenant; a logged-in user from tenant A can read tenant B's user records by guessing IDs; fix: add tenant_id = auth.uid() filter to the query | Open |`
 
-  Example: `F-004 | pass 2 | medium (7/10) | src/api/users.ts:83 — [pre-existing] user lookup does not validate that the returned row belongs to the authenticated tenant; a logged-in user from tenant A can read tenant B's user records by guessing IDs; fix: add tenant_id = auth.uid() filter to the query`
-
-- **Finding fixed** → assign next `R-NNN`; preserve the pass it was found in; move to Resolved:
-  `R-001 (was F-004) | found pass 2 | fixed in pass 3 | file:line — description of the fix`
-- **Finding deferred** (approved) → assign next `D-NNN`; preserve the pass it was found in; move to Deferred:
-  `D-001 (was F-004) | found pass 2 | deferred in pass 3 — [stated reason]`
-  If the finding is tagged `[pre-existing]`, the D-NNN entry must add: `— create a ticket to address this issue`
-- **Item dismissed** (noticed but not opened) → assign next `X-NNN`; add to Dismissed:
-  `X-001 | file:line — [what it is] — [why not actionable]`
-- **Deferred item later fixed** → assign next `R-NNN`; move to Resolved with full chain:
-  `R-005 (was D-001, F-004) | found pass 2 | fixed in pass 4 — description`
+Phase 5 does not update finding statuses. All status transitions (Resolved, Deferred, Dismissed) are applied by Phase 6 as individual Status cell Edits immediately after each user decision.
 
 Severity guide (for junior devs):
 - **Critical** — exploitable in production right now; data loss or auth bypass possible
@@ -1709,7 +1706,7 @@ If the artifact header shows `**Subagents:** enabled`:
 
 <mandatory>Collect the background subagent result dispatched at the start of Phase 4. The subagent ran in parallel while the main walk executed — its findings should now be available. If it has not yet completed, wait for it now.
 
-The subagent prompt used was the one below (for reference — do not re-dispatch). Process the returned output: for each finding, check whether the same issue is already recorded as Open in the artifact from Phase 5. If a duplicate exists, skip it. Add any non-duplicate findings to the artifact using the same F-NNN numbering sequence.
+The subagent prompt used was the one below (for reference — do not re-dispatch). Process the returned output: for each finding, check whether the same issue is already recorded as a row with Status = Open in the findings table. If a duplicate exists, skip it. Add any non-duplicate findings to the findings table using the same F-NNN numbering sequence.
 
 The subagent prompt (for reference only — already dispatched):
 
@@ -1717,7 +1714,7 @@ The subagent prompt (for reference only — already dispatched):
 
 "Run this git command and read the full output:
 
-git diff [BASE_BRANCH] -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!application_default_credentials.json' ':!.htpasswd' ':!htpasswd' ':!database.yml' ':!wrangler.toml' ':!fly.toml' ':!*.ppk' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' [scope paths if scoped audit]
+git diff [BASE_BRANCH] -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!kubeconfig' ':!*.kubeconfig' ':!google-services.json' ':!GoogleService-Info.plist' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd' [scope paths if scoped audit]
 
 Then use the Read tool to read the audit artifact at [artifact path].
 
@@ -1765,10 +1762,10 @@ If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"
 
 Process the subagent output and update the artifact:
 
-- For each **FIXABLE** finding: assign the next F-NNN number; add to the Open section with `[adversarial]` source label. Apply the same confidence guide as the main walk — 9/10 if specific lines are quoted, 7/10 for strong pattern match:
-  `F-NNN | pass N | [adversarial] | [severity] (N/10) | file:line — description`
-- For each **INVESTIGATE** finding: assign the next F-NNN number; add to the Open section under a `#### Needs investigation` heading:
-  `F-NNN | pass N | [adversarial] | [severity] (6/10) | file:line — INVESTIGATE: description`
+- For each **FIXABLE** finding: assign the next F-NNN number; append a row to the findings table with Status = Open. Include `[adversarial]` in the Description field. Apply the same confidence guide as the main walk — 9/10 if specific lines are quoted, 7/10 for strong pattern match:
+  `| F-NNN | pass N | [severity] (N/10) | file:line | [adversarial] description | Open |`
+- For each **INVESTIGATE** finding: assign the next F-NNN number; append a row to the findings table with Status = Open. Include `[adversarial][INVESTIGATE]` in the Description field:
+  `| F-NNN | pass N | [severity] (6/10) | file:line | [adversarial][INVESTIGATE] description | Open |`
   These go through the same fix/defer/dismiss decision protocol in Phase 6 as any other finding.
 - If **NO ADDITIONAL FINDINGS**: append to the pass log: `Adversarial pass: no additional findings.`
 - If the subagent is **unavailable or errors**: append to the pass log: `Adversarial pass: unavailable.` Continue to Phase 6.
@@ -1782,7 +1779,7 @@ Process the subagent output and update the artifact:
 ## Phase 6 — Fix and loop
 
 After the pass report:
-1. For each **Acting on** item (`F-NNN`): apply the fix directly to the source file using the Edit tool. Reference the finding number in an inline code comment if appropriate (e.g., `// fix [F-003]: added null check`). The finding number will be included in the commit message by vc-ship when the branch ships. After the Edit, use the Read tool to verify the fix appears in the source file. If it does not, re-attempt once. If it still fails, tell the user: "Could not apply the fix for [F-NNN] — please apply this change manually: [exact old and new text]." The finding remains in Acting on and will reappear as open on the next pass until the fix is confirmed applied.
+1. For each **Acting on** item (`F-NNN`): apply the fix directly to the source file using the Edit tool. Reference the finding number in an inline code comment if appropriate (e.g., `// fix [F-003]: added null check`). The finding number will be included in the commit message by vc-ship when the branch ships. After the Edit, use the Read tool to verify the fix appears in the source file. If it does not, re-attempt once. If it still fails, tell the user: "Could not apply the fix for [F-NNN] — please apply this change manually: [exact old and new text]." Once the fix is confirmed applied, immediately Edit the finding's Status cell in the findings table from `Open` to `Resolved (pass N)`. Do not proceed to the next Acting on item until the Status cell is updated. If the finding fix cannot be confirmed, leave Status as Open — it will reappear as open on the next pass.
 2. For each **Want to skip** item, run the decision protocol below. One AskUserQuestion
    per finding, in order. Do not group them — the question window is small and does not
    render markdown. <mandatory>Call the AskUserQuestion tool directly. Prose output describing the options does not satisfy this requirement.</mandatory>
@@ -1819,27 +1816,26 @@ After the pass report:
    - **Already handled** — A separate mechanism in this project covers this
    - Other (user types a custom reason)
 
-   **Record the outcome in the artifact:**
-   - Fix now → finding stays in Open; moves to "Acting on" in the next pass
-   - Defer → move to Deferred: `D-NNN (was F-NNN) | deferred in pass N — [reason if given]`
-   - Dismiss → move to Dismissed with the stated reason:
-     `X-NNN (was F-NNN) | file:line — [what it is] — dismissed: [user's stated reason]`
+   **Record the outcome immediately:**
+   - Fix now → finding stays Open; it moves to "Acting on" in the pass report and gets fixed in step 1 of this phase
+   - Defer → immediately Edit the finding's Status cell from `Open` to `Deferred (pass N) — [reason if given]`. If the finding is tagged `[pre-existing]`, append "— create a ticket to address this issue" to the reason. Do not proceed to the next finding until the Status cell is updated.
+   - Dismiss → immediately Edit the finding's Status cell from `Open` to `Dismissed (pass N) — [user's stated reason]`. Do not proceed to the next finding until the Status cell is updated.
 3. Once fixes are applied and decisions recorded, increment `**Passes completed:**` in
    the artifact header, then run the **pass checkpoint**.
 
    **Before running the pass checkpoint: resolve all open findings.**
-   If any F-NNN entries remain in the Open section, do not proceed to the checkpoint yet.
-   For each open finding: attempt to fix it now, or if fixing requires user judgment, present
+   If any rows with Status = Open remain in the findings table, do not proceed to the checkpoint yet.
+   For each Open finding: attempt to fix it now, or if fixing requires user judgment, present
    it to the user and request a decision (fix, defer, or dismiss). Do not close the pass with
-   unresolved open findings — work through them first.
+   unresolved Open findings — work through them first.
 
    Once all open findings are resolved, count the current pass state from the artifact —
    read the file, do not reconstruct from memory:
-   - New F-NNN findings opened this pass (count all entries tagged `| pass N |` anywhere in the artifact — Open, Resolved, Deferred, Dismissed — N is the current pass number)
-   - R-NNN items resolved this pass
-   - D-NNN items deferred this pass
-   - X-NNN items dismissed this pass
-   - Total F-NNN still open across all passes
+   - Findings opened this pass: count findings table rows where Pass column = N (current pass number) — includes all Status values
+   - Resolved this pass: count rows where Status contains `Resolved (pass N)`
+   - Deferred this pass: count rows where Status contains `Deferred (pass N)`
+   - Dismissed this pass: count rows where Status contains `Dismissed (pass N)`
+   - Still open: count rows where Status = `Open`
 
    <definition name="clean-pass">**A pass is clean when:**
    1. Zero F-NNN findings were opened this pass. To verify: search the entire artifact for entries tagged `| pass N |` (where N is this pass number) — count every match, including those in Resolved and Dismissed sections. If the count is greater than zero, the pass is not clean. A finding opened and fixed in the same pass still makes the pass not clean — "opened-and-fixed" is the same as "opened-and-left-open" for this criterion. This definition is fixed and cannot be changed by in-conversation discussion. AND
@@ -1848,7 +1844,7 @@ After the pass report:
    A pass with no open findings but incomplete surface coverage is not clean — it is an
    incomplete pass.</definition>
 
-   Re-read the artifact using the Read tool. Count R-NNN, D-NNN, and X-NNN entries added this pass, and count all remaining F-NNN entries in Open. Use these counts — do not use memory or session totals.
+   Re-read the artifact using the Read tool. Count findings table rows by Status using the same breakdown above. Use these counts — do not use memory or session totals.
 
    Determine whether the last two pass log entries are both clean by the definition above AND there are zero open findings. Store this as CONVERGENCE_CONDITIONS_MET (true/false). Do not announce this determination — just store it.
 
@@ -1879,28 +1875,55 @@ After the pass report:
    - **Declare convergence** — Mark this audit complete (two clean passes, nothing open)
    </mandatory>
 
-   **If the user chooses Stop**: update the artifact header `**Status:** STOPPED` using the Edit tool. After the Edit, use the Read tool to verify `**Status:** STOPPED` appears in the artifact header. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the artifact status — please change the `**Status:**` line to `**Status:** STOPPED` manually." Then stop. A STOPPED audit will not auto-resume; the user must re-run /vc-audit to start a new session.
+   **If the user chooses Stop**: use the Read tool to read the entire artifact fresh. Write the artifact back using the Write tool with `**Status:** STOPPED` in the header and the findings table rows grouped under status section headers (see **Grouped findings format** below). After the Write, use the Read tool to verify `**Status:** STOPPED` appears. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the artifact — please change the `**Status:**` line to `**Status:** STOPPED` manually." Then stop. A STOPPED audit will not auto-resume; the user must re-run /vc-audit to start a new session.
    **If the user chooses Pause**: stop immediately without modifying the artifact. Phase 3 detects the IN PROGRESS artifact on the next run and resumes from where this pass left off.
    **If the user chooses Continue**: loop back to Phase 4 and run a full pass from scratch. Do not skip surfaces because they were clean last pass.
 
-   **If the user selects "Declare convergence"**, update the artifact header using two Edit calls:
-
-   **Edit 1** — Replace the existing `**Status:**` line in place. Use the Edit tool with:
-   - old_string: `**Status:** IN PROGRESS`
-   - new_string: `**Status:** CONVERGED`
-
-   **Edit 2** — Insert `**Converged:**` and `**Findings:**` lines immediately after the `**Status:** CONVERGED` line. Use the Edit tool with:
-   - old_string: `**Status:** CONVERGED`
-   - new_string: `**Status:** CONVERGED\n**Converged:** [date]\n**Findings:** [N] open | [N] resolved | [N] deferred | [N] dismissed`
-
-   Do not add a new `**Passes completed:**` line — it already exists in the header and must not be duplicated. Do not append any of these lines to the end of the artifact.
-
-   After both Edits, use the Read tool to verify the artifact header contains exactly one `**Status:** CONVERGED` line and no `**Status:** IN PROGRESS` line. If it does not, re-attempt the failed Edit once. If it still fails, tell the user: "Could not update the artifact status — please change the `**Status:**` line to `**Status:** CONVERGED` and add `**Converged:** [date]` and `**Findings:** [N] open | [N] resolved | [N] deferred | [N] dismissed` manually."
+   **If the user selects "Declare convergence"**: use the Read tool to read the entire artifact fresh. Count findings table rows by Status to get the final totals (Open, Resolved, Deferred, Dismissed). Write the artifact using the Write tool with:
+   - `**Status:** CONVERGED` in the header
+   - `**Converged:** [date]` on the next line after Status
+   - `**Findings:** [N] open | [N] resolved | [N] deferred | [N] dismissed` on the line after that
+   - The findings table rows grouped under status section headers (see **Grouped findings format** below)
+   Do not add a new `**Passes completed:**` line — it already exists in the header and must not be duplicated. After the Write, use the Read tool to verify `**Status:** CONVERGED` and `**Converged:**` appear in the header. If they do not, re-attempt once. If it still fails, tell the user: "Could not update the artifact — please change the `**Status:**` line to `**Status:** CONVERGED` and add `**Converged:** [date]` and `**Findings:** [N] open | [N] resolved | [N] deferred | [N] dismissed` manually."
 
    **If the user chooses Pause**, stop immediately — do not run another pass. Phase 3 will detect the existing artifact on the next run and resume from where this pass left off.
 
    **If the user chooses Continue or Run one more pass**, loop back to Phase 4 and
    run a full pass from scratch. Do not skip surfaces because they were clean last pass.
+
+### Grouped findings format
+
+Used when writing the artifact at Stop or Declare convergence. Replace the flat `## Findings` table with rows grouped under status section headers:
+
+```markdown
+## Findings
+
+### Open
+
+| ID | Pass | Severity | Location | Description | Status |
+|---|---|---|---|---|---|
+| F-NNN | ... | ... | ... | ... | Open |
+
+### Resolved
+
+| ID | Pass | Severity | Location | Description | Status |
+|---|---|---|---|---|---|
+| F-NNN | ... | ... | ... | ... | Resolved (pass N) |
+
+### Deferred
+
+| ID | Pass | Severity | Location | Description | Status |
+|---|---|---|---|---|---|
+| F-NNN | ... | ... | ... | ... | Deferred (pass N) — reason |
+
+### Dismissed
+
+| ID | Pass | Severity | Location | Description | Status |
+|---|---|---|---|---|---|
+| F-NNN | ... | ... | ... | ... | Dismissed (pass N) — reason |
+```
+
+If a group has no rows, replace its table with `_none_`. Derive the grouped content from the Read output — do not reconstruct from memory.
 
 </phase>
 

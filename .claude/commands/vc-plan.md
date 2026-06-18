@@ -1,6 +1,7 @@
+<!-- AUTO-GENERATED from src/vc-plan.md.tmpl — do not edit directly -->
 # /vc-plan
 
-<!-- version: 2026-06-17.1 -->
+<!-- version: 2026-06-18.1 -->
 
 The project coordinator for your entire codebase. Run it before writing code to plan a
 feature, to capture ideas before they slip away, or when you're not sure what to build next.
@@ -40,13 +41,13 @@ If not found or unparseable: use defaults — SHELL_TYPE = "bash", GIT_AVAILABLE
 
 Use the Bash tool to run: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/versions.json`
 
-If curl fails or exits non-zero for any reason, skip this section entirely and proceed.
+If curl fails or exits non-zero for any reason, skip this section entirely and proceed to Phase 0.
 
 Read the JSON from stdout and check the `vc-plan` entry.
 
 <output-handlers>
 
-**`vc-plan` version matches `2026-06-17.1`**: proceed silently.
+**`vc-plan` version matches `2026-06-18.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -55,7 +56,7 @@ Read the JSON from stdout and check the `vc-plan` entry.
   - "Proceed with current version"
   - "Update now"
 </mandatory>
-If Proceed: continue.
+If Proceed: continue to Phase 0.
 If Update now: follow the **Auto-update** steps below, then stop.
 
 **Newer version available, `critical` is true**:
@@ -66,9 +67,9 @@ If Update now: follow the **Auto-update** steps below, then stop.
   - "Continue with current version"
 </mandatory>
 If Update now: follow the **Auto-update** steps below, then stop.
-If Continue: proceed.
+If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-17.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-18.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -93,6 +94,31 @@ When you have enough information to proceed, proceed. Do not ask for clarificati
 on details that can be resolved as work unfolds. 70% certainty is enough to move
 forward — the artifact can always be updated.
 </protected>
+
+<artifact-write-rules>
+
+Shell and interpreter scripts may never write to `.vibe-check/**`. Use the Edit or Write tool only.
+
+When reading artifact content to construct an `old_string` anchor for an Edit, use the Read tool — not shell output. Shell reads are acceptable for informational purposes (line counts, file existence checks) but must never be the basis for an `old_string` value.
+
+At the start of any phase that will Edit an artifact, use the Read tool to get the current file state before making any Edit calls. Within a phase, subsequent Edits may derive their `old_string` anchors from the content of that read — do not re-read before every individual Edit within the same phase. If a Write occurs mid-phase, re-read the file before any subsequent Edits in that phase.
+
+</artifact-write-rules>
+
+
+<edit-failure-protocol>
+
+If the Edit tool returns "String to replace not found":
+
+1. **Do not diagnose. Do not switch to a shell script or interpreter.** Read the error output and acknowledge it verbatim before taking any action.
+2. Use the Read tool to get the current exact text of the file. Construct the shortest unique anchor (1–2 lines) from what you just read. Retry the Edit once.
+3. If the retry fails: use the Read tool to read the **entire file** fresh. Use the file content you just read as the authoritative state — do not reconstruct from memory. Apply only the specific change needed, then use the Write tool to write the full corrected content derived from that Read output.
+4. If the Write tool also fails: stop. Give the user the exact intended content to apply manually. Do not continue until the user confirms the file is correct.
+
+This ladder is mandatory. Do not improvise a recovery path not in this list.
+
+</edit-failure-protocol>
+
 
 ---
 
@@ -134,14 +160,21 @@ Derive BASE_BRANCH using the following priority chain. Stop at the first step th
 
 1. Run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it returns output (e.g. `refs/remotes/origin/main`): strip the `refs/remotes/origin/` prefix directly — do not pipe through shell utilities. Use the result as BASE_BRANCH.
 2. If step 1 returned nothing: run `git remote set-head origin -a 2>/dev/null` to fetch the remote HEAD, then re-run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it now returns output: strip the prefix and use as BASE_BRANCH. (Repos created with `git init` + push rather than `git clone` do not have this reference set locally — this step populates it.)
-3. Look for a branch in the `git for-each-ref` output whose name is exactly `main`, `master`, or `develop` — partial matches do not count. Use the first match as BASE_BRANCH.
+3. Look for a branch in the `git for-each-ref` output whose name is exactly `main`, `master`, or `develop` — partial matches do not count. If exactly one match, use it as BASE_BRANCH. If more than one match, use the **Multiple default branches detected** handler below.
 4. If no step resolves BASE_BRANCH: use the handler below.
 
 Store the resolved value as BASE_BRANCH — this is the branch all features branch from throughout this skill.
 
 <output-handlers>
 
-**If BASE_BRANCH could not be resolved** (steps 1 and 2 above both returned nothing):
+**Multiple default branches detected** (e.g. both `main` and `master` exist in the refs list from step 3):
+<mandatory>Call AskUserQuestion with:
+- Question: "Multiple base branches were found: [list them]. Which one will features branch from?"
+- Options: one option per matched branch name.
+</mandatory>
+Use the user's answer as BASE_BRANCH.
+
+**If BASE_BRANCH could not be resolved** (steps 1, 2, and 3 above all returned nothing):
 <mandatory>Call AskUserQuestion with:
 - Question: "vc-plan needs to know which branch your features branch off from. What is the name of your main branch? Recommendation: main — it is the most common default."
 - Options:
@@ -154,14 +187,14 @@ Store the resolved value as BASE_BRANCH — this is the branch all features bran
 
 ### Deferred findings check
 
-Use the Glob tool to list all files matching `.vibe-check/vc-audit/*.md`. For each file found, use the Read tool to scan for lines beginning with `D-` in the Deferred section. Collect all deferred findings across all audit artifacts, noting the source branch slug (from the filename) and the full finding entry for each.
+Use the Glob tool to list all files matching `.vibe-check/vc-audit/*.md`. For each file found, use the Read tool to scan the findings table for rows where the Status column contains `Deferred`. Collect all deferred findings across all audit artifacts, noting the source branch slug (from the filename), the finding ID (F-NNN), severity, and description from each row.
 
 If no deferred findings exist: continue silently to the roadmap check.
 
 If deferred findings exist: tell the user:
 
 "**Carry-forward debt:** [N] finding(s) deferred from previous audits:
-[list each as: D-NNN ([branch-slug]): description]"
+[list each as: F-NNN ([branch-slug]): description]"
 
 <mandatory>Call AskUserQuestion with:
 - Question: "You have [N] deferred finding(s) from previous audits. Address one now or start a new feature?"
@@ -175,28 +208,28 @@ If "Start a new feature instead": continue to the roadmap check.
 If "Address a deferred finding": present findings as selectable options in batches of 3. Sort by severity (critical first, then high, medium, low).
 
 <mandatory>Call AskUserQuestion with:
-- Question: "Which deferred finding would you like to fix? (Or type `[branch-slug] D-NNN` in the Other box — e.g. `auth D-002`.)"
-- Options: [list the next 3 findings as "[branch-slug] D-NNN — [short description]"; if more than 3 remain in this batch, add a 4th option: "Next batch → ([N] more findings)"]
+- Question: "Which deferred finding would you like to fix? (Or type `[branch-slug] F-NNN` in the Other box — e.g. `auth F-002`.)"
+- Options: [list the next 3 findings as "[branch-slug] F-NNN — [short description]"; if more than 3 remain in this batch, add a 4th option: "Next batch → ([N] more findings)"]
 </mandatory>
 
 If "Next batch →": advance to the next 3 findings and repeat the AskUserQuestion. Continue until the user selects a finding or exhausts all batches (if all batches shown with no selection, start again from the first batch).
 
 If the user typed in the Other box: match the input against the full findings list by branch slug and finding ID. If an unambiguous match is found, use it. If the input is ambiguous or doesn't match, tell the user which findings were closest and restart the batch from the beginning.
 
-Once a finding is selected, extract from its artifact entry:
-- Finding ID (D-NNN)
+Once a finding is selected, extract from its artifact row:
+- Finding ID (F-NNN)
 - Source branch slug (from the artifact filename)
 - Severity (critical/high/medium/low)
 - File and line reference
 - Description and fix direction
 
-Create a branch slug: `fix-[source-branch-slug]-[finding-id-lowercase]` (e.g. `fix-auth-d-001`). Run `git branch --list "fix-[source-branch-slug]-[finding-id-lowercase]*"` to check for collisions — if one exists, append `-2` (or the next available number).
+Create a branch slug: `fix-[source-branch-slug]-[finding-id-lowercase]` (e.g. `fix-auth-f-001`). Run `git branch --list "fix-[source-branch-slug]-[finding-id-lowercase]*"` to check for collisions — if one exists, append `-2` (or the next available number).
 
 Run `git status --short`. If uncommitted changes exist: use the same carry-over/stash AskUserQuestion as defined later in this Phase 0 for new branch creation.
 
 Run `git checkout -b [final-slug]`. Confirm: "You are now on branch `[final-slug]`."
 
-Tell the user: "Planning a fix for [D-NNN] from the [source-branch-slug] audit. Pre-loading the finding as your problem statement."
+Tell the user: "Planning a fix for [F-NNN] from the [source-branch-slug] audit. Pre-loading the finding as your problem statement."
 
 Skip Phase 1's opening question. Instead treat the finding as pre-loaded context:
 - **Problem:** [description from the finding]
@@ -204,7 +237,7 @@ Skip Phase 1's opening question. Instead treat the finding as pre-loaded context
 - **Severity:** [severity]
 - **Fix direction:** [fix direction, if FIXABLE]
 
-Present this to the user and ask: "Does this capture what needs fixing? Add any additional context." Then proceed through Phases 2–10 normally. The plan artifact must include `**Resolves:** D-NNN ([source-branch-slug])` in the header so the fix is traceable back to the original finding.
+Present this to the user and ask: "Does this capture what needs fixing? Add any additional context." Then proceed through Phases 2–10 normally. The plan artifact must include `**Resolves:** F-NNN ([source-branch-slug])` in the header so the fix is traceable back to the original finding.
 
 Check for a roadmap at `.vibe-check/vc-plan/roadmap.md` using the Read tool, and for any
 plan files using the Glob tool to list `.vibe-check/vc-plan/*.md` (exclude `roadmap.md`).
@@ -651,9 +684,7 @@ be lowercase, hyphen-separated, 2–4 words — for example: `add-user-auth`, `f
 - Options: [the 2–3 generated slugs]
 </mandatory>
 
-Take the chosen slug (or the value from Other if the user typed their own). Slugify it:
-lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive
-hyphens, strip leading/trailing hyphens. This is `[branch-slug]`.
+Take the chosen slug (or the value from Other if the user typed their own). Slugify it: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. This is `[branch-slug]`.
 
 If the slug was derived from a user-typed "Other" value: show the derived slug and ask for confirmation before creating the branch: "Your branch will be named `[final-slug]` — does that look right?" If yes: proceed. If they want a different name: ask them to type it, re-slugify, and show the result again before proceeding.
 
@@ -682,9 +713,7 @@ Update `[branch-slug]` to `[final-slug]` — all subsequent steps use this for a
 
 **If the current branch is NOT the default branch**: the branch was confirmed in Phase 0 (either
 selected from the roadmap, or the user confirmed it as the correct branch). Run
-`git branch --show-current`, then slugify: lowercase, replace any character that is not
-alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens.
-This is `[branch-slug]` for all subsequent steps.
+`git branch --show-current`, then slugify: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. This is `[branch-slug]` for all subsequent steps.
 
 </output-handlers>
 

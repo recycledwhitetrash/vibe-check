@@ -1,3 +1,4 @@
+<!-- AUTO-GENERATED from src/vc-ship.md.tmpl — do not edit directly -->
 # /vc-ship — Ship Flow
 
 <!-- version: 2026-06-17.2 -->
@@ -102,6 +103,32 @@ waived by any phase-specific rule.
 
 </protected>
 
+
+<artifact-write-rules>
+
+Shell and interpreter scripts may never write to `.vibe-check/**`. Use the Edit or Write tool only.
+
+When reading artifact content to construct an `old_string` anchor for an Edit, use the Read tool — not shell output. Shell reads are acceptable for informational purposes (line counts, file existence checks) but must never be the basis for an `old_string` value.
+
+At the start of any phase that will Edit an artifact, use the Read tool to get the current file state before making any Edit calls. Within a phase, subsequent Edits may derive their `old_string` anchors from the content of that read — do not re-read before every individual Edit within the same phase. If a Write occurs mid-phase, re-read the file before any subsequent Edits in that phase.
+
+</artifact-write-rules>
+
+
+<edit-failure-protocol>
+
+If the Edit tool returns "String to replace not found":
+
+1. **Do not diagnose. Do not switch to a shell script or interpreter.** Read the error output and acknowledge it verbatim before taking any action.
+2. Use the Read tool to get the current exact text of the file. Construct the shortest unique anchor (1–2 lines) from what you just read. Retry the Edit once.
+3. If the retry fails: use the Read tool to read the **entire file** fresh. Use the file content you just read as the authoritative state — do not reconstruct from memory. Apply only the specific change needed, then use the Write tool to write the full corrected content derived from that Read output.
+4. If the Write tool also fails: stop. Give the user the exact intended content to apply manually. Do not continue until the user confirms the file is correct.
+
+This ladder is mandatory. Do not improvise a recovery path not in this list.
+
+</edit-failure-protocol>
+
+
 ---
 
 <phase id="0" name="orient">
@@ -154,26 +181,22 @@ available features to start, or let you create a new branch." Stop.
 </mandatory>
 Use the answer as BASE_BRANCH.
 
+**Multiple default branches detected** (e.g. both `main` and `master` exist in the refs list):
+<mandatory>Call AskUserQuestion with:
+- Question: "Multiple base branches were found: [list them]. Which one will this branch be merged into?"
+- Options: one option per matched branch name.
+</mandatory>
+Use the user's answer as BASE_BRANCH.
+
 **Otherwise**: derive BASE_BRANCH using this priority chain:
 
 1. From the `git symbolic-ref refs/remotes/origin/HEAD` output: if it returned a value, strip the `refs/remotes/origin/` prefix directly — do not use shell utilities. Use the result as BASE_BRANCH.
 2. If step 1 returned nothing: run `git remote set-head origin -a 2>/dev/null` to fetch the remote HEAD, then re-run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it now returns output: strip the prefix and use as BASE_BRANCH. (Repos created with `git init` + push rather than `git clone` do not have this reference set locally — this step populates it.)
-3. If no value yet: identify all branches whose name is exactly `main`, `master`, or `develop` — partial matches do not count.
-
-If step 2 produces exactly one match: note it as BASE_BRANCH.
-
-If step 2 produces more than one match:
-<mandatory>Call AskUserQuestion with:
-- Question: "Multiple base branches found: [list]. Which is the correct merge target for this PR?"
-- Options: one option per matched branch name.
-</mandatory>
-Use the answer as BASE_BRANCH.
+3. If no value yet: identify all branches whose name is exactly `main`, `master`, or `develop` — partial matches do not count. Use the first match as BASE_BRANCH.
 
 </output-handlers>
 
-Slugify the current branch name: lowercase the full name, replace every character that is
-not a-z, 0-9, or `-` with `-`, collapse runs of consecutive `-` into one, strip any leading
-or trailing `-`. This is the branch slug used to find artifacts.
+Slugify the current branch name: lowercase, replace any character that is not alphanumeric or `-` with `-`, collapse consecutive hyphens, strip leading/trailing hyphens. This is the branch slug used to find artifacts.
 
 **Resume check:** Use the Read tool to check whether `.vibe-check/vc-ship/[branch-slug].md`
 exists with `**Status:** in progress`. If it does: read `**Excluded files:**` and restore as `[excluded-files]`; read `**Last phase:**` and restore as `[last-phase]`. Note that this is a resumed run — skip all phases up to and including `[last-phase]` and continue from the next phase.
@@ -264,6 +287,256 @@ If the state file `.vibe-check/vc-ship/[branch-slug].md` exists: use the Edit to
 Run checks A, B, and C in order before building the PR. Gitleaks finding real secrets is a
 hard stop. Lint and test failures are soft gates — the user can continue, but failures are
 noted in the review readiness table.
+
+### 0 — Security baseline check
+
+### Security baseline check
+
+Use the Read tool to read `.gitignore` (if it exists). Check whether the lines `# vibe-check security baseline start` and `# vibe-check security baseline end` are both present.
+
+**Both markers present**: read the content between the markers and compare it line-by-line to the current baseline block below. If the content matches exactly: skip. If it differs:
+- Use the Edit tool to replace everything from `# vibe-check security baseline start` through `# vibe-check security baseline end` (inclusive) with the updated baseline block below.
+- Tell the user: "Updated the vibe-check security baseline in `.gitignore`."
+
+**Markers absent** (or `.gitignore` does not exist):
+<mandatory>Call AskUserQuestion with:
+- Question: "No vibe-check security baseline was found in `.gitignore`. Add the security patterns now?"
+- Options:
+  - "Add security patterns"
+  - "Leave it as-is"
+</mandatory>
+If Add security patterns:
+- If `.gitignore` exists: use the Edit tool to append the security baseline block to the end of `.gitignore`.
+- If `.gitignore` does not exist: use the Write tool to create it with the full template below.
+If Leave it as-is: skip.
+
+**Full `.gitignore` template (for new files only):**
+
+```
+# ============================================================
+# Security — never commit secrets or credentials
+# ============================================================
+
+# vibe-check security baseline start
+# Environment variables and local config
+.env
+.env.*
+.envrc
+.envrc.*
+local_settings.py
+settings.py
+database.yml
+application_default_credentials.json
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+*.pkcs8
+*.jks
+*.keystore
+*.ppk
+id_rsa
+id_ecdsa
+id_ed25519
+id_dsa
+
+# Secret stores and credential files
+*.secret
+*.secrets
+*.vault
+*.enc
+*secrets*
+*password*
+*passwd*
+.netrc
+*credentials.json
+*service-account*.json
+*-key.json
+
+# Package manager auth
+.npmrc
+.yarnrc
+.yarnrc.yml
+.pypirc
+
+# Infrastructure secrets
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+kubeconfig
+*.kubeconfig
+google-services.json
+GoogleService-Info.plist
+docker-compose.override.yml
+docker-compose.*.yml
+wrangler.toml
+fly.toml
+.htpasswd
+htpasswd
+# vibe-check security baseline end
+
+# ============================================================
+# Installed packages and dependencies (never commit these)
+# ============================================================
+
+node_modules/
+.venv/
+venv/
+env/
+.env/
+__pycache__/
+*.pyc
+.bundle/
+vendor/bundle/
+.gradle/
+build/
+dist/
+target/
+
+# ============================================================
+# Framework and build tool caches
+# ============================================================
+
+.vite/
+.next/
+.nuxt/
+.svelte-kit/
+.parcel-cache/
+.turbo/
+.cache/
+
+# ============================================================
+# Test output
+# ============================================================
+
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+cypress/videos/
+cypress/screenshots/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ============================================================
+# Operating system files
+# ============================================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Editor files
+# ============================================================
+
+.idea/
+# .vscode/    ← uncomment this line to exclude VS Code settings from git
+
+# ============================================================
+# vibe-check local config (machine-specific, not for sharing)
+# ============================================================
+
+.vibe-check/vc-local.conf
+
+# ============================================================
+# How to add your own patterns
+# ============================================================
+#
+# Ignore a specific file:
+#   my-notes.txt
+#
+# Ignore all files with a given extension:
+#   *.log
+#
+# Ignore a whole folder and everything inside it:
+#   my-folder/
+#
+# Ignore a file only in the project root (not in subfolders):
+#   /config.local.json
+#
+# Ignore everything in a folder but keep the folder itself:
+#   temp/*
+#   !temp/.gitkeep
+
+```
+
+After any write or update: tell the user "If VS Code's Source Control panel still shows files that should now be ignored, click the **refresh icon** (↺) at the top of the Source Control panel — VS Code doesn't always pick up `.gitignore` changes automatically."
+
+**Current security baseline block:**
+
+```
+# vibe-check security baseline start
+# Environment variables and local config
+.env
+.env.*
+.envrc
+.envrc.*
+local_settings.py
+settings.py
+database.yml
+application_default_credentials.json
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+*.pkcs8
+*.jks
+*.keystore
+*.ppk
+id_rsa
+id_ecdsa
+id_ed25519
+id_dsa
+
+# Secret stores and credential files
+*.secret
+*.secrets
+*.vault
+*.enc
+*secrets*
+*password*
+*passwd*
+.netrc
+*credentials.json
+*service-account*.json
+*-key.json
+
+# Package manager auth
+.npmrc
+.yarnrc
+.yarnrc.yml
+.pypirc
+
+# Infrastructure secrets
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+kubeconfig
+*.kubeconfig
+google-services.json
+GoogleService-Info.plist
+docker-compose.override.yml
+docker-compose.*.yml
+wrangler.toml
+fly.toml
+.htpasswd
+htpasswd
+# vibe-check security baseline end
+```
+
 
 ### A — Gitleaks (secret scan)
 
@@ -725,7 +998,7 @@ If the state file exists: use the Edit tool to update the `**Last phase:**` line
 ## Phase 3 — Read the diff
 
 ```bash
-git diff BASE_BRANCH...HEAD -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!google-services.json' ':!GoogleService-Info.plist' ':!kubeconfig' ':!*.kubeconfig' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd'
+git diff BASE_BRANCH...HEAD -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!kubeconfig' ':!*.kubeconfig' ':!google-services.json' ':!GoogleService-Info.plist' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**'
 ```
 
 <gate>Do not proceed until you have the diff output.</gate>
