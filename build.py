@@ -19,6 +19,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -31,10 +32,41 @@ VERSIONS_FILE = ROOT / "versions.json"
 CHECK_MODE = "--check" in sys.argv
 DIFF_MODE = "--diff" in sys.argv
 
+VERSION_RE = re.compile(r"\d{4}-\d{2}-\d{2}\.\d+")
+
 
 def load_versions() -> dict:
     with open(VERSIONS_FILE) as f:
         return json.load(f)
+
+
+def save_versions(versions: dict) -> None:
+    """Write versions.json preserving the aligned one-skill-per-line format."""
+    max_len = max(len(k) for k in versions)
+    lines = ["{"]
+    items = list(versions.items())
+    for i, (skill, info) in enumerate(items):
+        pad = " " * (max_len - len(skill) + 1)
+        comma = "," if i < len(items) - 1 else ""
+        entry = f'{{ "version": "{info["version"]}", "critical": {str(info["critical"]).lower()} }}'
+        lines.append(f'  "{skill}":{pad}{entry}{comma}')
+    lines.append("}")
+    VERSIONS_FILE.write_text("\n".join(lines) + "\n")
+
+
+def next_version(current: str) -> str:
+    """Bump to today.1, or increment the suffix if already today."""
+    today = date.today().strftime("%Y-%m-%d")
+    m = re.match(r"(\d{4}-\d{2}-\d{2})\.(\d+)", current)
+    if m and m.group(1) == today:
+        return f"{today}.{int(m.group(2)) + 1}"
+    return f"{today}.1"
+
+
+def content_changed(compiled: str, on_disk: str) -> bool:
+    """True if the files differ on non-version lines."""
+    strip = lambda s: [l for l in s.splitlines() if not VERSION_RE.search(l)]
+    return strip(compiled) != strip(on_disk)
 
 
 def load_sections() -> dict[str, str]:
@@ -91,7 +123,7 @@ def build_sensitive_tokens(patterns: list[dict]) -> dict[str, str]:
     }
 
 
-def build_template(tmpl_path: Path, versions: dict, sections: dict[str, str], sensitive: dict[str, str]) -> str:
+def build_template(tmpl_path: Path, versions: dict, sections: dict[str, str], sensitive: dict[str, str]) -> tuple[str, list[str]]:
     skill_name = tmpl_path.stem.removesuffix(".md")  # e.g. "vc-audit"
     content = tmpl_path.read_text()
 
@@ -115,6 +147,18 @@ def build_template(tmpl_path: Path, versions: dict, sections: dict[str, str], se
     return content, remaining
 
 
+def compile_all(tmpls, versions, sections, sensitive) -> dict[str, tuple[str, list[str], Path]]:
+    """Return {skill_name: (final_content, remaining_tokens, out_path)}."""
+    results = {}
+    for tmpl_path in tmpls:
+        skill_name = tmpl_path.stem.removesuffix(".md")
+        out_path = OUT / f"{skill_name}.md"
+        compiled, remaining = build_template(tmpl_path, versions, sections, sensitive)
+        header = f"<!-- AUTO-GENERATED from src/{tmpl_path.name} — do not edit directly -->\n"
+        results[skill_name] = (header + compiled, remaining, out_path)
+    return results
+
+
 def main():
     versions = load_versions()
     sections = load_sections()
@@ -126,17 +170,26 @@ def main():
         print("No .md.tmpl files found in src/. Nothing to build.", file=sys.stderr)
         sys.exit(1)
 
+    results = compile_all(tmpls, versions, sections, sensitive)
+
+    # Auto-bump versions for skills whose non-version content changed vs on-disk.
+    # Skipped in --check mode (check verifies the current state, doesn't mutate).
+    bumped = {}  # skill_name -> (old, new)
+    if not CHECK_MODE:
+        for skill_name, (final, _, out_path) in results.items():
+            if skill_name in versions and out_path.exists():
+                if content_changed(final, out_path.read_text()):
+                    old = versions[skill_name]["version"]
+                    versions[skill_name]["version"] = next_version(old)
+                    bumped[skill_name] = (old, versions[skill_name]["version"])
+        if bumped:
+            save_versions(versions)
+            results = compile_all(tmpls, versions, sections, sensitive)
+
     errors = []
-    for tmpl_path in tmpls:
-        skill_name = tmpl_path.stem.removesuffix(".md")
-        out_path = OUT / f"{skill_name}.md"
-        compiled, remaining = build_template(tmpl_path, versions, sections, sensitive)
-
-        header = f"<!-- AUTO-GENERATED from src/{tmpl_path.name} — do not edit directly -->\n"
-        final = header + compiled
-
+    for skill_name, (final, remaining, out_path) in results.items():
         if remaining:
-            msg = f"UNREPLACED TOKENS in {tmpl_path.name}: {remaining}"
+            msg = f"UNREPLACED TOKENS in {skill_name}.md.tmpl: {remaining}"
             if CHECK_MODE:
                 errors.append(msg)
             else:
@@ -149,7 +202,11 @@ def main():
                 errors.append(f"STALE:   {out_path} (run build.py to regenerate)")
         else:
             out_path.write_text(final)
-            print(f"  built: {out_path.relative_to(ROOT)}")
+            if skill_name in bumped:
+                old, new = bumped[skill_name]
+                print(f"  built: {out_path.relative_to(ROOT)}  [{old} → {new}]")
+            else:
+                print(f"  built: {out_path.relative_to(ROOT)}")
 
     if CHECK_MODE:
         if errors:

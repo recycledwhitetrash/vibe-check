@@ -1,7 +1,7 @@
 <!-- AUTO-GENERATED from src/vc-ship.md.tmpl — do not edit directly -->
 # /vc-ship — Ship Flow
 
-<!-- version: 2026-06-17.2 -->
+<!-- version: 2026-06-18.1 -->
 
 Guides you through a safe push-and-PR flow for a feature branch. Before pushing, runs a
 gitleaks secret scan (hard stop on any detected secrets), a lint check, and test coverage
@@ -40,7 +40,7 @@ Read the JSON from stdout and check the `vc-ship` entry.
 
 <output-handlers>
 
-**`vc-ship` version matches `2026-06-17.2`**: proceed silently.
+**`vc-ship` version matches `2026-06-18.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -62,7 +62,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-17.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-18.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
