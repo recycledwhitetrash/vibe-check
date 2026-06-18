@@ -1,7 +1,7 @@
 <!-- AUTO-GENERATED from src/vc-audit.md.tmpl — do not edit directly -->
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-18.2 -->
+<!-- version: 2026-06-18.3 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -42,7 +42,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-18.2`**: proceed silently.
+**`vc-audit` version matches `2026-06-18.3`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -64,7 +64,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-18.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-18.3`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -1387,19 +1387,27 @@ Derive the list from the issue description and the diff — do not use a fixed t
 **If FILE_READ_MODE is true:** derive the surface map from the chunk file list in the plan stub. Use the file paths, extensions, and directory names — no diff is available. Create one surface entry per chunk file (or per logical unit within a file if it has multiple distinct responsibilities).
 **If UNTRACKED_FILES is non-empty:** include each untracked file as a surface entry. Mark it as `(untracked — Read tool)` so the walk step knows to read it rather than diff it.
 
-For each surface, state:
-1. **What it is** — give it a name (e.g., "user profile RPC function", "nightly CSV export script", "MCP file-read tool", "checkout ETL pipeline")
-2. **Category** — auth boundary / data store / IPC channel / file system path / network endpoint / process boundary / config source / LLM interface / tool surface
-3. **Entry points** — how does a caller (adversarial or faulty) reach it? what arguments or inputs does it accept?
-4. **What it trusts** — what does it assume about its inputs that isn't enforced?
+Write the surface map as a markdown table with exactly this header:
 
-This list drives the walk. Every surface must be walked in every pass. If you discover a
-surface mid-walk, add it to the map and walk it before completing the pass.
+```
+| # | Surface | Category | Entry points | What it trusts |
+|---|---|---|---|---|
+```
 
-**Minimum granularity:** one entry per changed file or logical unit. A single entry for
+For each row:
+- **#** — sequential number starting at 1
+- **Surface** — a specific name (e.g., "user profile RPC function", "nightly CSV export script", "MCP file-read tool", "checkout ETL pipeline")
+- **Category** — one of: auth boundary / data store / IPC channel / file system path / network endpoint / process boundary / config source / LLM interface / tool surface
+- **Entry points** — how does a caller (adversarial or faulty) reach it? what arguments or inputs does it accept?
+- **What it trusts** — what does it assume about its inputs that isn't enforced?
+
+This table drives the walk. Every row must be walked in every pass. If you discover a
+surface mid-walk, add a row to the table and walk it before completing the pass.
+
+**Minimum granularity:** one row per changed file or logical unit. A single row for
 "the auth layer" that covers ten changed files is not sufficient. Vague surface map entries
 produce vague walks and make it impossible to verify coverage. If a file has multiple
-distinct responsibilities, split it into multiple entries.
+distinct responsibilities, split it into multiple rows.
 
 </phase>
 
