@@ -1412,6 +1412,15 @@ All findings use the `F-NNN` prefix. The counter starts at 001 when the artifact
 
 ## Phase 4 — Walk (non-negotiable rules)
 
+<mandatory>**Pass authorization gate.** Before doing anything else in Phase 4, check the pass number you are about to run (call it N):
+
+- If N = 1: proceed. Pass 1 is always authorized by the user running /vc-audit.
+- If N ≥ 2: you must have received a **"Continue to pass N"** response from an **AskUserQuestion tool call** in Phase 6 of the previous pass in this conversation session. Look back in the current conversation — find the AskUserQuestion call and the user's "Continue" response. If you cannot find it, **do not start the walk**. Instead, re-read the artifact, run Phase 6 (fix any open findings, increment the passes completed counter), and call the AskUserQuestion pass checkpoint now.
+
+Exception: if the `## Pass N progress` section is present in the artifact with `— in progress` in the pass log (resumed session after compaction or restart), you may proceed without a "Continue" response — the user already authorized this pass in the previous session.
+
+**Rationalizing is not allowed.** "The user probably wants me to continue" is not authorization. Only an explicit AskUserQuestion "Continue" response is.</mandatory>
+
 <recovery>
 
 **If this is a resumed session (after context compaction or restart):**
@@ -1429,17 +1438,19 @@ All findings use the `F-NNN` prefix. The counter starts at 001 when the artifact
 
 <mandatory>
 
-**Write a pass-start marker to the artifact before doing anything else.** Append the following line to the pass log section:
+**Write a pass-start marker to the artifact before doing anything else.** Append the following block to the pass log section:
 
 ```
 ### Pass N — in progress
+
+**Surface walk receipts:**
 ```
 
-Replace this with the full pass log entry (per Phase 5) when the pass completes. If the session ends before the pass completes, this marker signals that the pass must be restarted on resume.
+Surface receipts are appended here during the walk (Step 4b). The `— in progress` marker is replaced by Phase 5 when the pass completes. If the session ends before the pass completes, this marker signals that the pass must be restarted on resume.
 
 </mandatory>
 
-**If this is a new pass** (no `## Pass N progress` section was found in the recovery step): immediately append a `## Pass N progress` section to the artifact, right after the `### Pass N — in progress` line. List every surface from the surface map, one line each, in the same order. Use this format:
+**If this is a new pass** (no `## Pass N progress` section was found in the recovery step): append a `## Pass N progress` section at the **end of the artifact** (after all existing content — it is a top-level `##` section separate from the pass log). List every surface from the surface map, one line each, in the same order. Use this format:
 
 ```markdown
 ## Pass N progress
@@ -1449,6 +1460,8 @@ subagent: pending
 ```
 
 For each surface, list the file paths associated with it from the surface map (space-separated after `—`). If FILE_READ_MODE is true, list the chunk file path instead. Set `subagent:` to `pending` if `**Subagents:** enabled` in the artifact header, otherwise `disabled`.
+
+<mandatory>The `## Pass N progress` section is always at the END of the artifact, never embedded inside the `### Pass N — in progress` pass log entry. The pass log entry contains only the two-line block written above (header + `**Surface walk receipts:**`). Never add checklist lines or any other content to the pass log entry during Phase 4 — the checklist lives in `## Pass N progress`, receipts are added to the pass log via Step 4b.</mandatory>
 
 **If this is a resumed pass** (REMAINING_SURFACES loaded from `## Pass N progress` in the recovery step): do not rewrite it. Use the existing section as-is.
 
@@ -1474,7 +1487,25 @@ If FILE_READ_MODE is true: use the Read tool to read the chunk file for this sur
 
 **Step 3 — Walk all selected lenses** against this surface. Follow the walk rules below. Follow dependencies into other files using the Read tool as required by the threat model.
 
-<mandatory>**Step 4 — After completing this surface:** use the Edit tool to replace `- [ ] [Surface name]` with `- [x] [Surface name]` in `## Pass N progress`. Do not move to the next surface until this Edit has succeeded. This step is required even if context was compacted mid-walk — the checklist is the only reliable record of which surfaces were completed. If you skip this step, the checklist becomes useless for resumption.</mandatory>
+<mandatory>**Step 4 — After completing this surface, perform BOTH of the following writes before moving to the next surface:**
+
+**Step 4a — Update the progress checklist.** Use the Edit tool to replace `- [ ] [Surface name]` with `- [x] [Surface name]` in `## Pass N progress`. Do not move to the next surface until this edit has succeeded. This is the resume record — skipping it makes compaction recovery impossible.
+
+**Step 4b — Write this surface's receipt into the pass log.** Use the Edit tool with:
+- `old_string`: `\n\n## Pass N progress` (the two newlines immediately before the `## Pass N progress` section header — substitute the actual pass number for N)
+- `new_string`: the receipt entry followed by `\n\n## Pass N progress`:
+
+```
+- Surface: [name from surface map]
+  Verdict: CLEAN | NEW FINDINGS (F-NNN)
+  Evidence: file:line — [specific observation from the Read or diff just performed]
+
+## Pass N progress
+```
+
+This inserts the receipt into the pass log just before the progress section. Each subsequent surface uses the same anchor — the `\n\n## Pass N progress` text is always present at the end of the new_string, so the anchor remains valid for the next surface.
+
+Do NOT write `Verdict: CLEAN` with no `Evidence:` citation, and do NOT write `Evidence:` without a real `file:line` reference from a tool call you made in Step 2 of this surface. "CLEAN. No issues." is not a valid receipt. Do NOT defer receipt writing to Phase 5 — write it now while the evidence is in your context.</mandatory>
 
 <walk-rules>
 
@@ -1534,7 +1565,11 @@ are the audit surface, not a diff.
 
 </walk-rules>
 
-**Coverage gate:** Before proceeding to Phase 5, read `## Pass N progress` from the artifact and verify every surface is marked `[x]`. If any surface is still `[ ]`, walk it now following the steps above. Do not proceed to Phase 5 with any `[ ]` surface remaining — an incomplete pass is not a clean pass, regardless of finding count.
+**Coverage gate:** Before proceeding to Phase 5, read the artifact and verify two things:
+1. Every surface in `## Pass N progress` is marked `[x]`. If any is still `[ ]`, walk it now (Steps 1–4).
+2. The `### Pass N — in progress` block in the pass log has a receipt entry (with `Verdict:` and `Evidence: file:line`) for every surface. If any surface has `[x]` in the progress section but no receipt in the pass log, re-read that surface's file(s) and write the receipt now via Step 4b — do not write from memory.
+
+Do not proceed to Phase 5 with any surface missing a receipt. An undocumented surface is not a clean surface.
 
 </phase>
 
@@ -1549,19 +1584,11 @@ do not create a new file per pass.
 
 **First: remove the `## Pass N progress` section.** Use the Read tool to find the exact content of the section (from the `## Pass N progress` line through the last `- [x]` surface line). Use the Edit tool to replace that entire block with an empty string. Confirm it is gone before continuing — this section is transient walk-tracking state and must not persist in the completed pass record.
 
-Add the following block at the **end of the artifact file**. Use the Read tool first to find the current last line of the artifact, then use the Edit tool with that last line as the `old_string` anchor so the new pass entry is added after it. Do not insert after an earlier pass entry — always anchor to the actual end of the file.
+<mandatory>**Second: finalize the pass log header.** Use the Edit tool to replace `### Pass N — in progress` with `### Pass N — [today's date]`. The surface walk receipts are already written in the pass log from Phase 4 Step 4b — do NOT rewrite or reconstruct them. Do NOT add any new content between the updated header and the first receipt line. This is a one-line header edit only.</mandatory>
+
+Then append the following fields after the last receipt entry in the `### Pass N` block (use the Edit tool, anchoring on the last `Evidence:` line of the final receipt):
 
 ```markdown
-### Pass N — [date/time]
-
-**Surface walk receipts** (one entry per surface in the surface map — no omissions):
-- Surface: [name from surface map]
-  Verdict: NEW FINDINGS | CLEAN
-  Evidence: src/auth.ts:42-67 — checked session token handling; [what was checked]
-- Surface: [name]
-  Verdict: CLEAN
-  Evidence: src/utils/validate.ts:12 — checked input validation logic; no issues found
-
 **Acting on** (F-NNN being fixed this pass):
 - F-003 | pass 1 | high (9/10) | src/export.ts:47 — CSV row written before checksum verified
 
@@ -1823,7 +1850,13 @@ After the pass report:
 
    **If the user chooses Stop**: use the Read tool to read the entire artifact fresh. Write the artifact back using the Write tool with `**Status:** STOPPED` in the header and the findings table rows grouped under status section headers (see **Grouped findings format** below). After the Write, use the Read tool to verify `**Status:** STOPPED` appears. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the artifact — please change the `**Status:**` line to `**Status:** STOPPED` manually." Then stop. A STOPPED audit will not auto-resume; the user must re-run /vc-audit to start a new session.
    **If the user chooses Pause**: stop immediately without modifying the artifact. Phase 3 detects the IN PROGRESS artifact on the next run and resumes from where this pass left off.
-   **If the user chooses Continue**: loop back to Phase 4 and run a full pass from scratch. Do not skip surfaces because they were clean last pass.
+   **If the user chooses Continue**: start Phase 4 from the very beginning — the authorization gate, the pass-start marker, and the `## Pass N progress` section must all be executed before any surface walk begins. Do not jump directly into reading files or running bash commands. The required sequence is:
+   1. Pass the Phase 4 authorization gate (the "Continue" response you just received satisfies it)
+   2. Write `### Pass N — in progress` to the artifact pass log
+   3. Append a fresh `## Pass N progress` section listing every surface as `[ ]`
+   4. Then begin the surface walk, one surface at a time, checking off `[x]` after each one
+
+   Do not skip surfaces because they were clean last pass. Do not skip steps 2 or 3 — without them, a compaction or interruption mid-pass leaves no record of what was completed.
 
    **If the user selects "Declare convergence"**: use the Read tool to read the entire artifact fresh. Count findings table rows by Status to get the final totals (Open, Resolved, Deferred, Dismissed). Write the artifact using the Write tool with:
    - `**Status:** CONVERGED` in the header
