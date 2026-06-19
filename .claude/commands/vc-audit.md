@@ -11,7 +11,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-19.3 -->
+<!-- version: 2026-06-19.4 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -52,7 +52,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-19.3`**: proceed silently.
+**`vc-audit` version matches `2026-06-19.4`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -74,7 +74,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-19.3`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-19.4`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -1696,6 +1696,8 @@ Add the following block at the **end of the artifact file**. Use the Read tool f
 - [honest account of what has not been fully walked yet]
   _(or: none — full coverage achieved this pass)_
 ```
+
+<mandatory>The pass log entry ends at "Remaining surface area". Do NOT add any fields after it — no "CONVERGENCE DECLARED", no "CLEAN", no terminal status, no summary sentence. The convergence decision is made in Phase 6 using AskUserQuestion. Writing any convergence conclusion in the pass log is a protocol violation regardless of how clean the pass was.</mandatory>
 
 A surface with no evidence entry is not considered walked. A pass is not clean unless
 every surface in the surface map has a receipt entry with at least one file:line citation.

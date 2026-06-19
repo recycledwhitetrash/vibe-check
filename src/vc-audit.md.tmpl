@@ -1577,6 +1577,8 @@ Add the following block at the **end of the artifact file**. Use the Read tool f
   _(or: none — full coverage achieved this pass)_
 ```
 
+<mandatory>The pass log entry ends at "Remaining surface area". Do NOT add any fields after it — no "CONVERGENCE DECLARED", no "CLEAN", no terminal status, no summary sentence. The convergence decision is made in Phase 6 using AskUserQuestion. Writing any convergence conclusion in the pass log is a protocol violation regardless of how clean the pass was.</mandatory>
+
 A surface with no evidence entry is not considered walked. A pass is not clean unless
 every surface in the surface map has a receipt entry with at least one file:line citation.
 
