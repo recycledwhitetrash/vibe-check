@@ -11,7 +11,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-19.2 -->
+<!-- version: 2026-06-19.3 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -52,7 +52,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-19.2`**: proceed silently.
+**`vc-audit` version matches `2026-06-19.3`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -74,7 +74,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-19.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-19.3`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -1894,7 +1894,14 @@ After the pass report:
 
    **Note for small branches:** On branches with fewer than five changed files, if CONVERGENCE_CONDITIONS_MET is true, verify the surface map has one entry per changed file and that each receipt entry cited actual line numbers. If coverage is superficial, set CONVERGENCE_CONDITIONS_MET = false.
 
-   <mandatory>Call AskUserQuestion with the pass checkpoint. Use this exact format — plain text, no markdown:
+   <mandatory>Your ONLY valid next action is to call AskUserQuestion with the pass checkpoint below. Do NOT:
+   - Write anything to the artifact
+   - Write a status like CONVERGED, DONE, STOPPED, or any terminal phrase to the artifact header or pass log
+   - End your response
+   - Take any other action
+   until AskUserQuestion has been called and the user has responded. This applies regardless of pass outcome, finding count, or how trivial the findings were. There are no exceptions.
+
+   Call AskUserQuestion with the pass checkpoint. Use this exact format — plain text, no markdown:
 
    **Question text:**
    ```
