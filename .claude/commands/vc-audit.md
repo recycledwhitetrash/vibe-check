@@ -11,7 +11,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-19.4 -->
+<!-- version: 2026-06-19.6 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -52,7 +52,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-19.4`**: proceed silently.
+**`vc-audit` version matches `2026-06-19.6`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -74,7 +74,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-19.4`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-19.6`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -1612,6 +1612,7 @@ are the audit surface, not a diff.
 - **No surface scans. No delta-only checks. No "I already covered this."** Every pass starts
   fresh from the surface map. Prior passes do not grant permission to skip. Do not write
   "same as pass N" for any surface — show your reasoning or you have not walked it.
+- **Every surface in every pass requires a Read tool call or diff output as the evidence source.** In-context memory of prior reads does not count — it is equivalent to skipping the surface. Even if you read a file two minutes ago in this same conversation, you must call the Read tool again for that surface in the current pass. Evidence must come from a tool call made during this pass, not from recall.
 - **The surface map is where you start, not where you stop.** If a surface map file imports,
   extends, or calls into another file and understanding that relationship is necessary to
   evaluate an attack vector or failure path, use the Read tool to pull in that file. Do this
@@ -1889,6 +1890,8 @@ After the pass report:
    3. Count findings table rows where Status = `Open`. Call this OPEN_COUNT.
 
    CONVERGENCE_CONDITIONS_MET = true ONLY if: CURRENT_PASS_FINDINGS = 0 AND PREV_PASS_FINDINGS = 0 AND OPEN_COUNT = 0. If N < 2 (fewer than two passes have run), CONVERGENCE_CONDITIONS_MET = false — convergence requires at least two passes.
+
+   **Critical:** PREV_PASS_FINDINGS counts findings OPENED in pass N-1, regardless of their current Status. A finding opened in pass 1 and immediately fixed still counts toward pass 1's finding total. Example: if pass 1 opened 9 findings (all now Resolved), then after pass 2: PREV_PASS_FINDINGS = 9 → CONVERGENCE_CONDITIONS_MET = false, even if pass 2 is completely clean. In that case, pass 3 would be the earliest possible convergence opportunity (if both pass 2 and pass 3 open zero findings).
 
    Store CONVERGENCE_CONDITIONS_MET. Do not announce this determination — just store it.
 
