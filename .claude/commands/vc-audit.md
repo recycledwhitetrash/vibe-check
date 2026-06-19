@@ -11,7 +11,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-19.1 -->
+<!-- version: 2026-06-19.2 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -52,7 +52,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-19.1`**: proceed silently.
+**`vc-audit` version matches `2026-06-19.2`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -74,7 +74,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-19.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-19.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -1927,6 +1927,11 @@ After the pass report:
    - `**Findings:** [N] open | [N] resolved | [N] deferred | [N] dismissed` on the line after that
    - The findings table rows grouped under status section headers (see **Grouped findings format** below)
    Do not add a new `**Passes completed:**` line — it already exists in the header and must not be duplicated. After the Write, use the Read tool to verify `**Status:** CONVERGED` and `**Converged:**` appear in the header. If they do not, re-attempt once. If it still fails, tell the user: "Could not update the artifact — please change the `**Status:**` line to `**Status:** CONVERGED` and add `**Converged:** [date]` and `**Findings:** [N] open | [N] resolved | [N] deferred | [N] dismissed` manually."
+
+   Once the artifact is verified CONVERGED, run this Bash command to notify the user:
+   ```
+   afplay /System/Library/Sounds/Ping.aiff 2>/dev/null || powershell.exe -NoProfile -Command "Add-Type -AssemblyName System.Runtime.WindowsRuntime; [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime] | Out-Null; [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType=WindowsRuntime] | Out-Null; \$xml = [Windows.Data.Xml.Dom.XmlDocument]::new(); \$xml.LoadXml('<toast><visual><binding template=\"ToastText01\"><text id=\"1\">vc-audit converged</text></binding></visual></toast>'); [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Claude Code').Show([Windows.UI.Notifications.ToastNotification]::new(\$xml))" 2>/dev/null || notify-send 'Claude Code' 'vc-audit converged' 2>/dev/null || true
+   ```
 
    **If the user chooses Pause**, stop immediately — do not run another pass. Phase 3 will detect the existing artifact on the next run and resume from where this pass left off.
 
