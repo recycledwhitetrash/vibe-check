@@ -1,7 +1,17 @@
+---
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Agent
+  - Glob
+---
 <!-- AUTO-GENERATED from src/vc-audit.md.tmpl — do not edit directly -->
+
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-18.3 -->
+<!-- version: 2026-06-18.4 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -42,7 +52,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-18.3`**: proceed silently.
+**`vc-audit` version matches `2026-06-18.4`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -64,7 +74,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-18.3`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-18.4`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -195,12 +205,12 @@ From the output above:
   2. Write these findings to the audit artifact (create it first if it doesn't exist, using the Phase 3 template).
   3. Tell the user: "All changes on this branch are in files excluded from audit (sensitive credentials or build artifacts). Review the files listed in the artifact manually before shipping." Stop.
 - **`--shortstat` is empty** (zero committed files changed vs BASE_BRANCH) **AND current branch is not the default branch**:
-  - If UNCOMMITTED_TRACKED or UNTRACKED_FILES is non-empty: real work is in progress. Run `git diff BASE_BRANCH --shortstat [same exclusions]` and use that count for the LARGE_DIFF check below. Tell the user: "No commits on this branch yet — [N] uncommitted file(s) detected. Auditing working tree changes vs [BASE_BRANCH]." Proceed.
+  - If UNCOMMITTED_TRACKED or UNTRACKED_FILES is non-empty: real work is in progress. Run `git diff BASE_BRANCH --shortstat [same exclusions]` to get the tracked-change count. Add the number of UNTRACKED_FILES to the file count for the LARGE_DIFF check — untracked files have no diff but still require a full Read and must be counted. Tell the user: "No commits on this branch yet — [N] uncommitted file(s) detected (plus [U] untracked). Auditing working tree changes vs [BASE_BRANCH]." Proceed.
   - If both are empty: check whether a plan stub exists at `.vibe-check/vc-plan/[branch-slug].md` and contains a `## Chunk files` section.
     - If plan stub with `## Chunk files` found and the section lists at least one file path: set FILE_READ_MODE = true. Note the file list from that section — this branch was set up by `/vc-onboard` and the audit will scan those files directly rather than a diff. Tell the user: "No changes detected vs [BASE_BRANCH]. A chunk file list was found in the plan stub — scanning chunk files directly instead of a diff." Proceed directly to Phase 1 using the chunk file extensions and paths for stack detection — skip the diff read and plan context check below.
     - If plan stub with `## Chunk files` found but the section is empty (no file paths listed): tell the user "The `## Chunk files` section in the plan stub is empty — nothing to audit in FILE_READ_MODE. Check the plan stub at `.vibe-check/vc-plan/[branch-slug].md` and ensure the section lists the files this branch covers." Stop.
     - If no plan stub or no `## Chunk files` section: tell the user "No changes detected vs [BASE_BRANCH] and no chunk file list was found. There is nothing to audit on this branch yet — make some changes first, then re-run /vc-audit." Stop.
-- LARGE_DIFF check: if committed shortstat was empty but uncommitted/untracked files exist, use `git diff BASE_BRANCH --shortstat` count instead of the committed shortstat. If total files > 15 or insertions > 800, this is a **LARGE_DIFF** — call AskUserQuestion: "This branch touches N files / ~M lines, which may be too large to fully audit in one context window. How would you like to proceed?"
+- LARGE_DIFF check: if committed shortstat was empty but uncommitted/untracked files exist, use the `git diff BASE_BRANCH --shortstat` file+insertion counts plus the UNTRACKED_FILES count as the total. If total files > 15 or insertions > 800, this is a **LARGE_DIFF** — call AskUserQuestion: "This branch touches N files / ~M lines, which may be too large to fully audit in one context window. How would you like to proceed?"
 - Options:
   - "Scope to a directory — re-run as `/vc-audit src/some-dir/`"
   - "Scope to specific files — re-run as `/vc-audit file1.ts file2.ts`"

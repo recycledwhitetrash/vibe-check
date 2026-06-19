@@ -154,8 +154,14 @@ def compile_all(tmpls, versions, sections, sensitive) -> dict[str, tuple[str, li
         skill_name = tmpl_path.stem.removesuffix(".md")
         out_path = OUT / f"{skill_name}.md"
         compiled, remaining = build_template(tmpl_path, versions, sections, sensitive)
-        header = f"<!-- AUTO-GENERATED from src/{tmpl_path.name} — do not edit directly -->\n"
-        results[skill_name] = (header + compiled, remaining, out_path)
+        notice = f"<!-- AUTO-GENERATED from src/{tmpl_path.name} — do not edit directly -->\n"
+        # Place notice after closing --- if file has YAML frontmatter
+        if compiled.startswith("---\n"):
+            end = compiled.index("\n---\n", 4) + 5
+            final = compiled[:end] + notice + compiled[end:]
+        else:
+            final = notice + compiled
+        results[skill_name] = (final, remaining, out_path)
     return results
 
 
