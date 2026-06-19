@@ -11,7 +11,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-18.4 -->
+<!-- version: 2026-06-19.1 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -52,7 +52,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-18.4`**: proceed silently.
+**`vc-audit` version matches `2026-06-19.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -74,7 +74,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-18.4`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-19.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -1800,8 +1800,20 @@ Process the subagent output and update the artifact:
 
 ## Phase 6 — Fix and loop
 
+**Auto-fix pass (before decisions):** Use the Read tool to read the current findings table. Scan for every Open row that qualifies for auto-fix:
+- Severity is `high` or `critical` — always qualifies, regardless of confidence
+- Severity is `low` or `medium` AND confidence is `7/10` or higher (parse the `(N/10)` value from the Severity cell)
+
+For each qualifying finding, in F-NNN order:
+1. Attempt to apply the fix directly to the source file using the Edit tool. The fix direction is stated in the finding description. Reference the finding number in an inline code comment if appropriate (e.g., `// fix [F-003]: added null check`).
+2. After the Edit, use the Read tool to verify the fix appears in the source file.
+3. **If confirmed:** immediately Edit the finding's Status cell from `Open` to `Resolved (pass N) [auto-fixed]`. Do not ask the user.
+4. **If the Edit fails or the correct change cannot be determined from the description:** leave Status as `Open`. The finding will be handled in the decision flow below.
+
+After completing the auto-fix pass, tell the user: "Auto-fixed [N] findings: [F-NNN, F-NNN, ...]" (omit this line entirely if N = 0).
+
 After the pass report:
-1. For each **Acting on** item (`F-NNN`): apply the fix directly to the source file using the Edit tool. Reference the finding number in an inline code comment if appropriate (e.g., `// fix [F-003]: added null check`). The finding number will be included in the commit message by vc-ship when the branch ships. After the Edit, use the Read tool to verify the fix appears in the source file. If it does not, re-attempt once. If it still fails, tell the user: "Could not apply the fix for [F-NNN] — please apply this change manually: [exact old and new text]." Once the fix is confirmed applied, immediately Edit the finding's Status cell in the findings table from `Open` to `Resolved (pass N)`. Do not proceed to the next Acting on item until the Status cell is updated. If the finding fix cannot be confirmed, leave Status as Open — it will reappear as open on the next pass.
+1. For each **Acting on** item (`F-NNN`) that was not already resolved by the auto-fix pass above: apply the fix directly to the source file using the Edit tool. Reference the finding number in an inline code comment if appropriate (e.g., `// fix [F-003]: added null check`). The finding number will be included in the commit message by vc-ship when the branch ships. After the Edit, use the Read tool to verify the fix appears in the source file. If it does not, re-attempt once. If it still fails, tell the user: "Could not apply the fix for [F-NNN] — please apply this change manually: [exact old and new text]." Once the fix is confirmed applied, immediately Edit the finding's Status cell in the findings table from `Open` to `Resolved (pass N)`. Do not proceed to the next Acting on item until the Status cell is updated. If the finding fix cannot be confirmed, leave Status as Open — it will reappear as open on the next pass.
 2. For each **Want to skip** item, run the decision protocol below. One AskUserQuestion
    per finding, in order. Do not group them — the question window is small and does not
    render markdown. <mandatory>Call the AskUserQuestion tool directly. Prose output describing the options does not satisfy this requirement.</mandatory>
@@ -1868,7 +1880,15 @@ After the pass report:
 
    Re-read the artifact using the Read tool. Count findings table rows by Status using the same breakdown above. Use these counts — do not use memory or session totals.
 
-   Determine whether the last two pass log entries are both clean by the definition above AND there are zero open findings. Store this as CONVERGENCE_CONDITIONS_MET (true/false). Do not announce this determination — just store it.
+   **Convergence check — count rows mechanically, do not reason from the pass log narrative:**
+
+   1. Count every findings table row where the Pass column contains `pass N` (current pass number). Call this CURRENT_PASS_FINDINGS. Include ALL Status values — Resolved, Fixed, Dismissed, Deferred, and Open all count. A finding opened and immediately fixed in pass N still counts.
+   2. Count every findings table row where the Pass column contains `pass N-1` (previous pass). Call this PREV_PASS_FINDINGS. Same rule — all Status values count.
+   3. Count findings table rows where Status = `Open`. Call this OPEN_COUNT.
+
+   CONVERGENCE_CONDITIONS_MET = true ONLY if: CURRENT_PASS_FINDINGS = 0 AND PREV_PASS_FINDINGS = 0 AND OPEN_COUNT = 0. If N < 2 (fewer than two passes have run), CONVERGENCE_CONDITIONS_MET = false — convergence requires at least two passes.
+
+   Store CONVERGENCE_CONDITIONS_MET. Do not announce this determination — just store it.
 
    **If this is a scoped audit** (artifact path contains `--`) AND CONVERGENCE_CONDITIONS_MET is true: run `git diff BASE_BRANCH --name-only` to get the full tracked file list, and check `git status --porcelain` for any UNTRACKED_FILES (filtered). Combine both for the full branch file list. Glob `.vibe-check/vc-audit/[branch-slug]--*.md` to find all other scoped audit artifacts for this branch. Compute which files on this branch are not covered by any scoped audit. If unaudited files remain, set CONVERGENCE_CONDITIONS_MET = false and note the uncovered files.
 
