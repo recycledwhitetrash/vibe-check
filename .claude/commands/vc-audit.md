@@ -11,7 +11,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-19.6 -->
+<!-- version: 2026-06-19.7 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -52,7 +52,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-19.6`**: proceed silently.
+**`vc-audit` version matches `2026-06-19.7`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -74,7 +74,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-19.6`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-19.7`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -1787,9 +1787,15 @@ If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"
 
 Process the subagent output and update the artifact:
 
-- For each **FIXABLE** finding: assign the next F-NNN number; append a row to the findings table with Status = Open. Include `[adversarial]` in the Description field. Apply the same confidence guide as the main walk — 9/10 if specific lines are quoted, 7/10 for strong pattern match:
+<mandatory>The subagent uses its own internal labeling — letters (A, B, C…), numbers, or arbitrary identifiers in its output. These labels are **never** used as finding IDs in the artifact. Every finding from the subagent must be renumbered using the artifact's F-NNN counter.
+
+Before adding any finding: read the findings table in the artifact and scan the ID column for the highest existing F-NNN number. Call that value NEXT_F_NUM. The first new finding gets F-(NEXT_F_NUM+1), the second gets F-(NEXT_F_NUM+2), and so on.
+
+Example: the artifact already has F-001 through F-005. The subagent returns findings labeled A, B, C. In the artifact they become F-006, F-007, F-008 — never A-A, A-B, A-C or any other format derived from the subagent's labels.</mandatory>
+
+- For each **FIXABLE** finding: assign the next F-NNN number from the counter above; append a row to the findings table with Status = Open. Include `[adversarial]` in the Description field. Apply the same confidence guide as the main walk — 9/10 if specific lines are quoted, 7/10 for strong pattern match:
   `| F-NNN | pass N | [severity] (N/10) | file:line | [adversarial] description | Open |`
-- For each **INVESTIGATE** finding: assign the next F-NNN number; append a row to the findings table with Status = Open. Include `[adversarial][INVESTIGATE]` in the Description field:
+- For each **INVESTIGATE** finding: assign the next F-NNN number from the counter above; append a row to the findings table with Status = Open. Include `[adversarial][INVESTIGATE]` in the Description field:
   `| F-NNN | pass N | [severity] (6/10) | file:line | [adversarial][INVESTIGATE] description | Open |`
   These go through the same fix/defer/dismiss decision protocol in Phase 6 as any other finding.
 - If **NO ADDITIONAL FINDINGS**: append to the pass log: `Adversarial pass: no additional findings.`
