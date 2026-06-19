@@ -11,7 +11,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-19.7 -->
+<!-- version: 2026-06-19.9 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -52,7 +52,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-19.7`**: proceed silently.
+**`vc-audit` version matches `2026-06-19.9`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -74,7 +74,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-19.7`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-19.9`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -1594,7 +1594,7 @@ If FILE_READ_MODE is true: use the Read tool to read the chunk file for this sur
 
 **Step 3 — Walk all selected lenses** against this surface. Follow the walk rules below. Follow dependencies into other files using the Read tool as required by the threat model.
 
-**Step 4 — After completing this surface:** use the Edit tool to replace `- [ ] [Surface name]` with `- [x] [Surface name]` in `## Pass N progress`. Confirm the update before moving to the next surface.
+<mandatory>**Step 4 — After completing this surface:** use the Edit tool to replace `- [ ] [Surface name]` with `- [x] [Surface name]` in `## Pass N progress`. Do not move to the next surface until this Edit has succeeded. This step is required even if context was compacted mid-walk — the checklist is the only reliable record of which surfaces were completed. If you skip this step, the checklist becomes useless for resumption.</mandatory>
 
 <walk-rules>
 
@@ -1825,7 +1825,12 @@ After the pass report:
 1. For each **Acting on** item (`F-NNN`) that was not already resolved by the auto-fix pass above: apply the fix directly to the source file using the Edit tool. Reference the finding number in an inline code comment if appropriate (e.g., `// fix [F-003]: added null check`). The finding number will be included in the commit message by vc-ship when the branch ships. After the Edit, use the Read tool to verify the fix appears in the source file. If it does not, re-attempt once. If it still fails, tell the user: "Could not apply the fix for [F-NNN] — please apply this change manually: [exact old and new text]." Once the fix is confirmed applied, immediately Edit the finding's Status cell in the findings table from `Open` to `Resolved (pass N)`. Do not proceed to the next Acting on item until the Status cell is updated. If the finding fix cannot be confirmed, leave Status as Open — it will reappear as open on the next pass.
 2. For each **Want to skip** item, run the decision protocol below. One AskUserQuestion
    per finding, in order. Do not group them — the question window is small and does not
-   render markdown. <mandatory>Call the AskUserQuestion tool directly. Prose output describing the options does not satisfy this requirement.</mandatory>
+   render markdown.
+   <mandatory>Your ONLY valid action here is to call the AskUserQuestion tool. Do NOT:
+   - Write any prose describing the finding, the options, or a recommendation to the user
+   - Write "Want me to apply it?", "Here's my recommendation:", "Next step:", or any similar text
+   - Present options as a markdown list or numbered list in your text output
+   Prose output does not ask the user anything — it just talks at them without giving them a choice. Only AskUserQuestion creates an actual decision point.</mandatory>
 
    **Build the question text in plain text:**
    ```
@@ -1906,11 +1911,12 @@ After the pass report:
    **Note for small branches:** On branches with fewer than five changed files, if CONVERGENCE_CONDITIONS_MET is true, verify the surface map has one entry per changed file and that each receipt entry cited actual line numbers. If coverage is superficial, set CONVERGENCE_CONDITIONS_MET = false.
 
    <mandatory>Your ONLY valid next action is to call AskUserQuestion with the pass checkpoint below. Do NOT:
+   - Write any text output to the user about the pass results, findings, next steps, or options (e.g. "Pass 1 found 4 issues…", "Ready to run Pass 2…", "Next step:…")
    - Write anything to the artifact
    - Write a status like CONVERGED, DONE, STOPPED, or any terminal phrase to the artifact header or pass log
    - End your response
    - Take any other action
-   until AskUserQuestion has been called and the user has responded. This applies regardless of pass outcome, finding count, or how trivial the findings were. There are no exceptions.
+   until AskUserQuestion has been called and the user has responded. This applies regardless of pass outcome, finding count, or how trivial the findings were. There are no exceptions. The AskUserQuestion tool call is the only valid communication channel for the pass checkpoint.
 
    Call AskUserQuestion with the pass checkpoint. Use this exact format — plain text, no markdown:
 
