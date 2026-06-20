@@ -29,8 +29,20 @@ DATA = SRC / "data"
 OUT = ROOT / ".claude" / "commands"
 VERSIONS_FILE = ROOT / "versions.json"
 
+# The lens catalog is NOT a slash command — it is a data file read selectively at audit
+# time. Its source template is split per-stack into .claude/lenses/ (outside commands/, so
+# Claude Code does not register it). Each Phase 0 stack loads only its own lens file.
+LENS_TEMPLATE = "vc-audit-lenses"          # src/vc-audit-lenses.md.tmpl stem
+LENS_OUT_DIR = ROOT / ".claude" / "lenses"
+
 CHECK_MODE = "--check" in sys.argv
 DIFF_MODE = "--diff" in sys.argv
+
+
+def slugify(s: str) -> str:
+    """Lens-file slug: lowercase, non-alphanumerics -> '-', collapse, strip."""
+    s = re.sub(r"[^a-z0-9]+", "-", s.lower())
+    return s.strip("-")
 
 VERSION_RE = re.compile(r"\d{4}-\d{2}-\d{2}\.\d+")
 
@@ -143,15 +155,42 @@ def build_template(tmpl_path: Path, versions: dict, sections: dict[str, str], se
         content = content.replace("{{VERSION}}", versions[skill_name]["version"])
         content = content.replace("{{SKILL_NAME}}", skill_name)
 
+    # Inject skill-specific companion download steps (used by version-check section)
+    COMPANION_DOWNLOADS = {
+        "vc-audit": (
+            "   Also refresh the per-stack lens catalog in `.claude/lenses/`. Fetch the manifest, then download each listed file:\n"
+            "   - bash/zsh:\n"
+            "     ```bash\n"
+            "     mkdir -p \"[project-root]/.claude/lenses\"\n"
+            "     curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/lenses/manifest.txt | while read -r f; do\n"
+            "       curl -fsSL \"https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/lenses/$f\" -o \"[project-root]/.claude/lenses/$f\"\n"
+            "     done\n"
+            "     ```\n"
+            "   - PowerShell:\n"
+            "     ```powershell\n"
+            "     New-Item -ItemType Directory -Force -Path \"[project-root]\\.claude\\lenses\" | Out-Null\n"
+            "     (curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/lenses/manifest.txt) -split \"`n\" | Where-Object { $_ } | ForEach-Object {\n"
+            "       curl.exe -fsSL \"https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/lenses/$_\" -o \"[project-root]\\.claude\\lenses\\$_\"\n"
+            "     }\n"
+            "     ```\n"
+        ),
+    }
+    content = content.replace("{{COMPANION_DOWNLOADS}}", COMPANION_DOWNLOADS.get(skill_name, ""))
+
     remaining = re.findall(r"\{\{[A-Z0-9_]+\}\}", content)
     return content, remaining
 
 
 def compile_all(tmpls, versions, sections, sensitive) -> dict[str, tuple[str, list[str], Path]]:
-    """Return {skill_name: (final_content, remaining_tokens, out_path)}."""
+    """Return {skill_name: (final_content, remaining_tokens, out_path)}.
+
+    The lens catalog template is handled separately by split_lenses() — skip it here.
+    """
     results = {}
     for tmpl_path in tmpls:
         skill_name = tmpl_path.stem.removesuffix(".md")
+        if skill_name == LENS_TEMPLATE:
+            continue
         out_path = OUT / f"{skill_name}.md"
         compiled, remaining = build_template(tmpl_path, versions, sections, sensitive)
         notice = f"<!-- AUTO-GENERATED from src/{tmpl_path.name} — do not edit directly -->\n"
@@ -165,6 +204,61 @@ def compile_all(tmpls, versions, sections, sensitive) -> dict[str, tuple[str, li
     return results
 
 
+def split_lenses(versions, sections, sensitive) -> tuple[dict[Path, str], str]:
+    """Split the lens catalog template into per-stack files under .claude/lenses/.
+
+    Each `### ` section is tagged in the source with `<!-- stack: NAME -->` where NAME is
+    the exact Phase 0 stack-detection name. Returns:
+      - files: {output_path -> content} for every lens file plus manifest.txt
+      - manifest_md: a markdown table mapping each stack to its lens file, injected into
+        the vc-audit skill via the {{LENS_MANIFEST}} token.
+    """
+    tmpl_path = SRC / f"{LENS_TEMPLATE}.md.tmpl"
+    content, _ = build_template(tmpl_path, versions, sections, sensitive)
+    notice = f"<!-- AUTO-GENERATED from src/{tmpl_path.name} — do not edit directly -->\n"
+
+    # Walk lines, grouping into sections that start at each `### ` header.
+    current = None
+    sections_out = []  # list of {"stack": str|None, "body": [lines]}
+    tag_re = re.compile(r"^<!--\s*stack:\s*(.+?)\s*-->\s*$")
+    for line in content.splitlines(keepends=True):
+        if line.startswith("### "):
+            current = {"stack": None, "body": [line]}
+            sections_out.append(current)
+            continue
+        if current is None:
+            continue  # preamble before the first header (none expected)
+        m = tag_re.match(line)
+        if m and current["stack"] is None:
+            current["stack"] = m.group(1)
+            continue  # tag is build metadata — do not write it to the lens file
+        current["body"].append(line)
+
+    files: dict[Path, str] = {}
+    manifest_names = []          # all filenames, for manifest.txt (download loop)
+    manifest_rows = []           # (stack, filename) for the markdown table
+    for sec in sections_out:
+        stack = sec["stack"] or "universal"
+        fname = f"{slugify(stack)}.md"
+        body = "".join(sec["body"]).rstrip() + "\n"
+        files[LENS_OUT_DIR / fname] = notice + body
+        manifest_names.append(fname)
+        if stack.lower() != "universal":
+            manifest_rows.append((stack, fname))
+
+    # manifest.txt: newline list of every lens filename (universal first), for the
+    # install / auto-update download loops.
+    files[LENS_OUT_DIR / "manifest.txt"] = "\n".join(manifest_names) + "\n"
+
+    # Markdown manifest table for the skill: stack -> lens file path.
+    md = ["| Stack (detected in Phase 0) | Lens file to read |", "|---|---|"]
+    for stack, fname in manifest_rows:
+        md.append(f"| {stack} | `.claude/lenses/{fname}` |")
+    manifest_md = "\n".join(md)
+
+    return files, manifest_md
+
+
 def main():
     versions = load_versions()
     sections = load_sections()
@@ -175,6 +269,11 @@ def main():
     if not tmpls:
         print("No .md.tmpl files found in src/. Nothing to build.", file=sys.stderr)
         sys.exit(1)
+
+    # Split the lens catalog first — it produces the {{LENS_MANIFEST}} token that the
+    # vc-audit skill needs, so it must run before compile_all.
+    lens_files, lens_manifest = split_lenses(versions, sections, sensitive)
+    sensitive["LENS_MANIFEST"] = lens_manifest
 
     results = compile_all(tmpls, versions, sections, sensitive)
 
@@ -213,6 +312,25 @@ def main():
                 print(f"  built: {out_path.relative_to(ROOT)}  [{old} → {new}]")
             else:
                 print(f"  built: {out_path.relative_to(ROOT)}")
+
+    # Per-stack lens files + manifest.txt (data files, not versioned skills).
+    for lens_path, lens_content in sorted(lens_files.items()):
+        if CHECK_MODE:
+            if not lens_path.exists():
+                errors.append(f"MISSING: {lens_path}")
+            elif lens_path.read_text() != lens_content:
+                errors.append(f"STALE:   {lens_path} (run build.py to regenerate)")
+        else:
+            lens_path.parent.mkdir(parents=True, exist_ok=True)
+            lens_path.write_text(lens_content)
+    if not CHECK_MODE:
+        # Remove orphaned lens files (a stack was renamed/removed in the source).
+        if LENS_OUT_DIR.exists():
+            keep = {p.name for p in lens_files}
+            for existing in LENS_OUT_DIR.iterdir():
+                if existing.is_file() and existing.name not in keep:
+                    existing.unlink()
+        print(f"  built: {LENS_OUT_DIR.relative_to(ROOT)}/ ({len(lens_files)} lens files)")
 
     if CHECK_MODE:
         if errors:

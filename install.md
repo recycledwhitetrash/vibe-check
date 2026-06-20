@@ -9,7 +9,7 @@ You are Claude Code executing this installer. Follow each numbered step below in
 ## What this does
 
 1. Verifies this is a git repository
-2. Downloads all 6 vibe-check skill files into `.claude/commands/` in your project
+2. Downloads all 6 vibe-check skill files into `.claude/commands/`, plus the per-stack audit lens catalog into `.claude/lenses/`
 3. Adds a code commenting standard and vibe-check usage guide to your project's `CLAUDE.md`
 4. Writes two memory files so Claude understands the vibe-check suite in future conversations
 5. Tells you to run `/vc-bootstrap` to finish setup
@@ -57,31 +57,40 @@ If the output is empty or does not match: use the **PowerShell** commands below.
 
 **bash/zsh:**
 ```bash
-mkdir -p "[PROJECT_ROOT]/.claude/commands"
+mkdir -p "[PROJECT_ROOT]/.claude/commands" "[PROJECT_ROOT]/.claude/lenses"
 curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-bootstrap.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-bootstrap.md"
 curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-plan.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-plan.md"
 curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-audit.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-audit.md"
 curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-ship.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md"
 curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-retro.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-retro.md"
 curl -fsSL -o "[PROJECT_ROOT]/.claude/commands/vc-onboard.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-onboard.md"
+# vc-audit's per-stack lens catalog — fetch the manifest, then each lens file
+curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/lenses/manifest.txt | while read -r f; do
+  curl -fsSL "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/lenses/$f" -o "[PROJECT_ROOT]/.claude/lenses/$f"
+done
 ```
 
 **PowerShell:**
 ```powershell
-New-Item -ItemType Directory -Force -Path "[PROJECT_ROOT]\.claude\commands"
+New-Item -ItemType Directory -Force -Path "[PROJECT_ROOT]\.claude\commands" | Out-Null
+New-Item -ItemType Directory -Force -Path "[PROJECT_ROOT]\.claude\lenses" | Out-Null
 curl.exe -fsSL -o "[PROJECT_ROOT]\.claude\commands\vc-bootstrap.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-bootstrap.md"
 curl.exe -fsSL -o "[PROJECT_ROOT]\.claude\commands\vc-plan.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-plan.md"
 curl.exe -fsSL -o "[PROJECT_ROOT]\.claude\commands\vc-audit.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-audit.md"
 curl.exe -fsSL -o "[PROJECT_ROOT]\.claude\commands\vc-ship.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md"
 curl.exe -fsSL -o "[PROJECT_ROOT]\.claude\commands\vc-retro.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-retro.md"
 curl.exe -fsSL -o "[PROJECT_ROOT]\.claude\commands\vc-onboard.md" "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-onboard.md"
+# vc-audit's per-stack lens catalog — fetch the manifest, then each lens file
+(curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/lenses/manifest.txt) -split "`n" | Where-Object { $_ } | ForEach-Object {
+  curl.exe -fsSL "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/lenses/$_" -o "[PROJECT_ROOT]\.claude\lenses\$_"
+}
 ```
 
 If any command fails (non-zero exit code): tell the user which file failed and stop.
 
-If curl / curl.exe is not found: tell the user "curl is not available on this machine. Please download these 6 files manually from GitHub and place them in `.claude/commands/` in your project:" then list the 6 fetch URLs above.
+If curl / curl.exe is not found: tell the user "curl is not available on this machine. Please download the 6 skill files (from the `-o` targets above, into `.claude/commands/`) plus the lens catalog from `https://github.com/recycledwhitetrash/vibe-check/tree/main/.claude/lenses` into `.claude/lenses/` manually." Then stop.
 
-After all 6 succeed, tell the user: "✓ 6 skill files installed."
+After the downloads succeed, tell the user: "✓ 6 skill files + per-stack lens catalog installed."
 
 ---
 

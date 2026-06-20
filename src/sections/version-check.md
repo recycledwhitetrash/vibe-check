@@ -40,5 +40,5 @@ If Continue: proceed to Phase 0.
 3. Use the Bash tool to download and overwrite the skill file in one step:
    - bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/{{SKILL_NAME}}.md -o "[project-root]/.claude/commands/{{SKILL_NAME}}.md"`
    - PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/{{SKILL_NAME}}.md -o "[project-root]/.claude/commands/{{SKILL_NAME}}.md"`
-4. If curl exits 0: tell the user "Updated to the latest version — reloading skill from disk." Then use the Read tool to read `[project-root]/.claude/commands/{{SKILL_NAME}}.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete.
+{{COMPANION_DOWNLOADS}}4. If curl exits 0: tell the user "Updated to the latest version — reloading skill from disk." Then use the Read tool to read `[project-root]/.claude/commands/{{SKILL_NAME}}.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete.
 5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
