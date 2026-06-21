@@ -12,7 +12,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-21.1 -->
+<!-- version: 2026-06-21.2 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -53,7 +53,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-21.1`**: proceed silently.
+**`vc-audit` version matches `2026-06-21.2`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -75,7 +75,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-21.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-21.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -1215,6 +1215,8 @@ After the pass report:
 
    Store CONVERGENCE_CONDITIONS_MET. Do not announce this determination — just store it.
 
+   <mandatory>CONVERGENCE_CONDITIONS_MET = true does NOT authorize convergence. It only unlocks the "Declare convergence" option in the AskUserQuestion checkpoint. You MUST NOT write `**Status:** CONVERGED`, append any convergence text, or take any terminal action before AskUserQuestion returns and the user selects "Declare convergence". The user owns this decision — not you. Proceed directly to the AskUserQuestion call below. Do not write any text output first.</mandatory>
+
    **If this is a scoped audit** (artifact path contains `--`) AND CONVERGENCE_CONDITIONS_MET is true: run `git diff BASE_BRANCH --name-only` to get the full tracked file list, and check `git status --porcelain` for any UNTRACKED_FILES (filtered). Combine both for the full branch file list. Glob `.vibe-check/vc-audit/[branch-slug]--*.md` to find all other scoped audit artifacts for this branch. Compute which files on this branch are not covered by any scoped audit. If unaudited files remain, set CONVERGENCE_CONDITIONS_MET = false and note the uncovered files.
 
    **Note for small branches:** On branches with fewer than five changed files, if CONVERGENCE_CONDITIONS_MET is true, verify the surface map has one entry per changed file and that each receipt entry cited actual line numbers. If coverage is superficial, set CONVERGENCE_CONDITIONS_MET = false.
@@ -1268,7 +1270,13 @@ After the pass report:
 
    Do not skip surfaces because they were clean last pass. Do not skip steps 2 or 3 — without them, a compaction or interruption mid-pass leaves no record of what was completed.
 
-   **If the user selects "Declare convergence"**: use the Read tool to read the entire artifact fresh. If the Read returns exactly 2000 lines, re-read with increasing offsets (2000, 4000, …) until a read returns fewer than 2000 lines — concatenate all parts before writing. Count findings table rows by Status to get the final totals (Open, Resolved, Deferred, Dismissed). Write the artifact using the Write tool with:
+   **If the user selects "Declare convergence"**: First, use the Edit tool to append `**Convergence authorized by user**` as a new line at the end of the current pass log entry. Then run:
+   ```bash
+   grep -c "Convergence authorized by user" .vibe-check/vc-audit/[artifact-filename]
+   ```
+   Count must be **1**. If it is **0**: you have reached this step without the user selecting "Declare convergence" from AskUserQuestion — stop, do not write CONVERGED, and call AskUserQuestion with the checkpoint now. Only proceed past this gate when the grep returns 1.
+
+   Then use the Read tool to read the entire artifact fresh. If the Read returns exactly 2000 lines, re-read with increasing offsets (2000, 4000, …) until a read returns fewer than 2000 lines — concatenate all parts before writing. Count findings table rows by Status to get the final totals (Open, Resolved, Deferred, Dismissed). Write the artifact using the Write tool with:
    - `**Status:** CONVERGED` in the header
    - `**Converged:** [date]` on the next line after Status
    - `**Findings:** [N] open | [N] resolved | [N] deferred | [N] dismissed` on the line after that
