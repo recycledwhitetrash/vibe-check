@@ -401,8 +401,8 @@ Create the hooks directory:
 - PowerShell: `New-Item -ItemType Directory -Force -Path ".claude\hooks" | Out-Null`
 
 Download the hook script:
-- bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/hooks/vc-audit-resume.sh -o .claude/hooks/vc-audit-resume.sh && chmod +x .claude/hooks/vc-audit-resume.sh`
-- PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/hooks/vc-audit-resume.sh -o ".claude\hooks\vc-audit-resume.sh"`
+- bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/hooks/vc-audit-resume.js -o .claude/hooks/vc-audit-resume.js`
+- PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/hooks/vc-audit-resume.js -o ".claude\hooks\vc-audit-resume.js"`
 
 If curl exits non-zero: tell the user the hook could not be downloaded — vc-audit still works without it, but mid-audit compaction will require manual resume. Continue to the next step.
 
@@ -416,7 +416,7 @@ try:
         s = json.load(f)
 except FileNotFoundError:
     s = {}
-hook_entry = {'type': 'command', 'command': 'bash .claude/hooks/vc-audit-resume.sh'}
+hook_entry = {'type': 'command', 'command': 'node .claude/hooks/vc-audit-resume.js'}
 hooks = s.setdefault('hooks', {})
 ss = hooks.setdefault('SessionStart', [])
 compact = next((e for e in ss if e.get('matcher') == 'compact'), None)
@@ -549,7 +549,7 @@ git log --oneline -1
 </mandatory>
 If Yes: run `git init`. Then run:
 ```bash
-git add .gitignore .vibe-check/vc-bootstrap.md .claude/hooks/vc-audit-resume.sh .claude/settings.json
+git add .gitignore .vibe-check/vc-bootstrap.md .claude/hooks/vc-audit-resume.js .claude/settings.json
 git commit -m "chore: bootstrap vibe-check setup"
 ```
 Then tell the user:
@@ -561,7 +561,7 @@ If No: tell the user to run `git init` in their terminal when ready, then run `/
 
 **No output, empty output, or a `fatal: ... does not have any commits yet` error** (fresh project — treat all three as equivalent): Run:
 ```bash
-git add .gitignore .vibe-check/vc-bootstrap.md .claude/hooks/vc-audit-resume.sh .claude/settings.json
+git add .gitignore .vibe-check/vc-bootstrap.md .claude/hooks/vc-audit-resume.js .claude/settings.json
 git commit -m "chore: bootstrap vibe-check setup"
 ```
 Then tell the user:
@@ -573,7 +573,7 @@ Then tell the user:
 
 **Has commits** (existing project): Run:
 ```bash
-git add .gitignore .vibe-check/vc-bootstrap.md .claude/hooks/vc-audit-resume.sh .claude/settings.json
+git add .gitignore .vibe-check/vc-bootstrap.md .claude/hooks/vc-audit-resume.js .claude/settings.json
 git commit -m "chore: bootstrap vibe-check setup"
 ```
 
