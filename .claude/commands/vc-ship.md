@@ -1,7 +1,7 @@
 <!-- AUTO-GENERATED from src/vc-ship.md.tmpl — do not edit directly -->
 # /vc-ship — Ship Flow
 
-<!-- version: 2026-06-18.1 -->
+<!-- version: 2026-06-20.3 -->
 
 Guides you through a safe push-and-PR flow for a feature branch. Before pushing, runs a
 gitleaks secret scan (hard stop on any detected secrets), a lint check, and test coverage
@@ -40,7 +40,7 @@ Read the JSON from stdout and check the `vc-ship` entry.
 
 <output-handlers>
 
-**`vc-ship` version matches `2026-06-18.1`**: proceed silently.
+**`vc-ship` version matches `2026-06-20.3`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -62,7 +62,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-18.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-20.3`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -72,7 +72,7 @@ If Continue: proceed to Phase 0.
 3. Use the Bash tool to download and overwrite the skill file in one step:
    - bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md -o "[project-root]/.claude/commands/vc-ship.md"`
    - PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-ship.md -o "[project-root]/.claude/commands/vc-ship.md"`
-4. If curl exits 0: tell the user "Updated to the latest version — reloading skill from disk." Then use the Read tool to read `[project-root]/.claude/commands/vc-ship.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete.
+4. If curl exits 0: tell the user "Updated to the latest version — reloading and resuming." Then use the Read tool to read `[project-root]/.claude/commands/vc-ship.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete. Do NOT stop, do NOT ask the user to re-run the skill — continue executing from Phase 0 immediately.
 5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
@@ -217,7 +217,9 @@ git diff BASE_BRANCH...HEAD --shortstat
 
 <gate>Do not proceed until you have both outputs.</gate>
 
-If `git log` returns no commits: tell the user there is nothing to ship on this branch and stop.
+If `git log` returns no commits:
+- If `git status --porcelain` (from the start of this phase) is also empty: tell the user "No commits and no uncommitted changes on this branch — there is nothing to ship." Stop.
+- If `git status --porcelain` is non-empty: tell the user "No commits on this branch yet — uncommitted changes detected. Proceeding to organize and commit them." Set NO_COMMITS = true. Continue to Phase 1 — phases 1–2 run normally. Phase 3 will be skipped (no committed diff exists). Phase 3.5 will organize the uncommitted changes into commits.
 
 </phase>
 
@@ -996,6 +998,8 @@ If the state file exists: use the Edit tool to update the `**Last phase:**` line
 <phase id="3" name="read-diff">
 
 ## Phase 3 — Read the diff
+
+**If NO_COMMITS is true**: skip this phase — there is no committed diff. Continue to Phase 3.5.
 
 ```bash
 git diff BASE_BRANCH...HEAD -- ':!.env' ':!.env.*' ':!.envrc' ':!.envrc.*' ':!local_settings.py' ':!settings.py' ':!database.yml' ':!application_default_credentials.json' ':!*.pem' ':!*.key' ':!*.p12' ':!*.pfx' ':!*.p8' ':!*.pkcs8' ':!*.jks' ':!*.keystore' ':!*.ppk' ':!id_rsa' ':!id_ecdsa' ':!id_ed25519' ':!id_dsa' ':!*.secret' ':!*.secrets' ':!*.vault' ':!*.enc' ':!*secrets*' ':!*password*' ':!*passwd*' ':!.netrc' ':!*credentials.json' ':!*service-account*.json' ':!*-key.json' ':!.npmrc' ':!.yarnrc' ':!.yarnrc.yml' ':!.pypirc' ':!*.tfstate' ':!*.tfstate.backup' ':!*.tfvars' ':!*.tfvars.json' ':!kubeconfig' ':!*.kubeconfig' ':!google-services.json' ':!GoogleService-Info.plist' ':!docker-compose.override.yml' ':!docker-compose.*.yml' ':!wrangler.toml' ':!fly.toml' ':!.htpasswd' ':!htpasswd' ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**'

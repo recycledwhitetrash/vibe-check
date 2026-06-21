@@ -27,6 +27,8 @@ SRC = ROOT / "src"
 SECTIONS = SRC / "sections"
 DATA = SRC / "data"
 OUT = ROOT / ".claude" / "commands"
+HOOKS_SRC = SRC / "hooks"
+HOOKS_OUT = ROOT / ".claude" / "hooks"
 VERSIONS_FILE = ROOT / "versions.json"
 
 # The lens catalog is NOT a slash command — it is a data file read selectively at audit
@@ -312,6 +314,26 @@ def main():
                 print(f"  built: {out_path.relative_to(ROOT)}  [{old} → {new}]")
             else:
                 print(f"  built: {out_path.relative_to(ROOT)}")
+
+    # Hook scripts — copied verbatim from src/hooks/ to .claude/hooks/.
+    if HOOKS_SRC.exists():
+        hook_files = sorted(HOOKS_SRC.iterdir())
+        for src_hook in hook_files:
+            if not src_hook.is_file():
+                continue
+            dst_hook = HOOKS_OUT / src_hook.name
+            content = src_hook.read_text()
+            if CHECK_MODE:
+                if not dst_hook.exists():
+                    errors.append(f"MISSING: {dst_hook}")
+                elif dst_hook.read_text() != content:
+                    errors.append(f"STALE:   {dst_hook} (run build.py to regenerate)")
+            else:
+                HOOKS_OUT.mkdir(parents=True, exist_ok=True)
+                dst_hook.write_text(content)
+                dst_hook.chmod(0o755)
+        if not CHECK_MODE:
+            print(f"  built: {HOOKS_OUT.relative_to(ROOT)}/ ({len(hook_files)} hook files)")
 
     # Per-stack lens files + manifest.txt (data files, not versioned skills).
     for lens_path, lens_content in sorted(lens_files.items()):

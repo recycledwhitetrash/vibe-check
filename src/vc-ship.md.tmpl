@@ -119,7 +119,9 @@ git diff BASE_BRANCH...HEAD --shortstat
 
 <gate>Do not proceed until you have both outputs.</gate>
 
-If `git log` returns no commits: tell the user there is nothing to ship on this branch and stop.
+If `git log` returns no commits:
+- If `git status --porcelain` (from the start of this phase) is also empty: tell the user "No commits and no uncommitted changes on this branch — there is nothing to ship." Stop.
+- If `git status --porcelain` is non-empty: tell the user "No commits on this branch yet — uncommitted changes detected. Proceeding to organize and commit them." Set NO_COMMITS = true. Continue to Phase 1 — phases 1–2 run normally. Phase 3 will be skipped (no committed diff exists). Phase 3.5 will organize the uncommitted changes into commits.
 
 </phase>
 
@@ -652,6 +654,8 @@ If the state file exists: use the Edit tool to update the `**Last phase:**` line
 <phase id="3" name="read-diff">
 
 ## Phase 3 — Read the diff
+
+**If NO_COMMITS is true**: skip this phase — there is no committed diff. Continue to Phase 3.5.
 
 ```bash
 git diff BASE_BRANCH...HEAD -- {{SENSITIVE_EXCLUSIONS}} ':!node_modules/**' ':!**/node_modules/**' ':!dist/**' ':!build/**' ':!.next/**' ':!.nuxt/**' ':!vendor/**' ':!*.pyc' ':!.venv/**' ':!venv/**' ':!target/**' ':!out/**' ':!.gradle/**'

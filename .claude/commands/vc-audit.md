@@ -12,7 +12,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-20.8 -->
+<!-- version: 2026-06-20.17 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -53,7 +53,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-20.8`**: proceed silently.
+**`vc-audit` version matches `2026-06-20.17`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -75,7 +75,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-20.8`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-20.17`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -100,7 +100,7 @@ If Continue: proceed to Phase 0.
        curl.exe -fsSL "https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/lenses/$_" -o "[project-root]\.claude\lenses\$_"
      }
      ```
-4. If curl exits 0: tell the user "Updated to the latest version — reloading skill from disk." Then use the Read tool to read `[project-root]/.claude/commands/vc-audit.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete.
+4. If curl exits 0: tell the user "Updated to the latest version — reloading and resuming." Then use the Read tool to read `[project-root]/.claude/commands/vc-audit.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete. Do NOT stop, do NOT ask the user to re-run the skill — continue executing from Phase 0 immediately.
 5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
@@ -676,6 +676,19 @@ For each surface, list the file paths associated with it from the surface map (s
 
 **Walk each surface one at a time.** For each `[ ]` surface in `## Pass N progress` (in order from top to bottom):
 
+<mandatory>**Newly discovered surfaces.** If, while walking a surface, you identify a file or component that (a) appears in the diff or Read output AND (b) is not already listed in `## Pass N progress`, it is a new surface that must be registered before it is walked:
+
+1. Use the Edit tool to add a new row to the surface map table (between `<!-- SURFACE_MAP_START -->` and `<!-- SURFACE_MAP_END -->`).
+2. Run immediately:
+   ```bash
+   grep -c "[new surface name]" .vibe-check/vc-audit/[artifact-filename]
+   ```
+   If count is **0**: the Edit failed — re-attempt before continuing.
+3. Use the Edit tool to append `- [ ] [Surface name] — [file path]` to `## Pass N progress`.
+4. Only then walk the new surface using Steps 1–4c.
+
+A surface that is walked but never added to the surface map table is invisible to all future passes — it will not appear in the next `## Pass N progress` section and will be silently skipped forever.</mandatory>
+
 <mandatory>**Do not narrate surface status before running Step 2.** Writing any text output to the user about a surface — e.g., "Surface 1: spotifyFetch — CLEAN", "no changes since pass N", "unchanged", "same as last pass" — before completing Steps 2–3 for that surface is prohibited. Run the diff or Read command first; report only after you have the output in context. The first thing you do for each `[ ]` surface is Step 1 (sensitive file check), then Step 2 (diff or Read) — not announcing its status.</mandatory>
 
 **Step 1 — Sensitive file check.** If the surface file(s) match any pattern in the Sensitive File Protection section, skip the diff and record a finding per the Sensitive File Protection rules. Use the Edit tool to mark the surface `[x]` in `## Pass N progress`. Move to the next surface.
@@ -701,6 +714,24 @@ If FILE_READ_MODE is true: use the Read tool to read the chunk file for this sur
 <mandatory>**Step 4 — After completing this surface, perform BOTH of the following writes before moving to the next surface:**
 
 **Step 4a — Update the progress checklist.** Use the Edit tool to replace `- [ ] [Surface name]` with `- [x] [Surface name]` in `## Pass N progress`. Do not move to the next surface until this edit has succeeded. This is the resume record — skipping it makes compaction recovery impossible.
+
+<!-- RECEIPT_FORMAT_START -->
+**Receipt format** — every surface walked in Phase 4 must produce a receipt in this exact format:
+
+```
+- Surface: [name from surface map]
+  Verdict: CLEAN | NEW FINDINGS (F-NNN)
+  Evidence: file:line — `[verbatim line from diff or Read output]` — [observation]
+```
+
+**Evidence rules (re-read after any compaction):**
+- The `Evidence:` line MUST contain at least one backtick-quoted verbatim string from Step 2 tool output in this pass
+- For a diff surface: quote a `+` or `-` line (e.g., `` `+const x = Object.create(null);` ``)
+- For a Read surface (untracked file or FILE_READ_MODE): quote an exact code line from the Read result at the cited line number
+- If `git diff` returns no output for this surface: run the Read tool on the source file and quote a line — `diff empty` alone is NOT valid Evidence
+- Forbidden phrases (prove no fresh tool call was made — invalid regardless of diff result): "No changes since pass N" · "Unchanged from pass N" · "Confirmed from pass N" · "Same as pass N" · "Already confirmed" · "No logic changes since" · "Unchanged" (with no file:line citation)
+- A receipt where `Evidence:` does not contain at least one backtick-enclosed string has the same standing as no receipt at all
+<!-- RECEIPT_FORMAT_END -->
 
 **Step 4b — Write this surface's receipt into the pass log.** Use the Edit tool with:
 - `old_string`: `\n\n## Pass N progress` (the two newlines immediately before the `## Pass N progress` section header — substitute the actual pass number for N)
@@ -746,6 +777,36 @@ The following phrases in a receipt are **forbidden** because they prove no fresh
 If you find yourself writing any of these phrases, stop — you have not performed Step 2 for this surface. Go back, run the git diff or Read tool call for this surface now, and write the Evidence from that output.
 
 When using the Read tool with a line range (e.g., Read lines 421-494), your Evidence citations must only reference content visible within that range. If you find yourself citing a line number, a function, a count, a method name, or any characteristic of the file that falls OUTSIDE the range you actually read — stop. You have used memory. Either re-read with a range that covers that content, or remove the citation. A receipt that cites content from outside the read window is a memory receipt, not a tool-call receipt — it has the same standing as no receipt at all.</mandatory>
+
+<mandatory>**Step 4b-verify — Confirm the receipt is in the correct format.** Immediately after the Step 4b Edit succeeds, run:
+
+```bash
+grep -B 3 "^## Pass N progress" .vibe-check/vc-audit/ARTIFACT | grep -c "^Evidence:"
+```
+
+Substitute the actual pass number and artifact filename. The count must be **1**.
+
+If the count is **0**: the receipt was written in abbreviated format — it is missing the `Evidence:` line (e.g., `Surface N — CLEAN. No changes since pass X.`). Do NOT proceed to Step 4c. First reload the required format:
+
+```bash
+sed -n '/RECEIPT_FORMAT_START/,/RECEIPT_FORMAT_END/{/<!--/d;p}' .claude/commands/vc-audit.md
+```
+
+Then run Edit to replace the abbreviated receipt text with a correctly formatted 3-line receipt. Re-run the `grep -B 3 | grep -c "^Evidence:"` command and confirm count = 1 before continuing.
+
+This step runs after every surface receipt regardless of whether compaction has occurred — it is the mechanical guard against gradual format drift in long uninterrupted sessions.</mandatory>
+
+<mandatory>**Step 4c — Verify any new findings are in the findings table.** If this receipt shows `Verdict: NEW FINDINGS`, run a grep for each F-NNN mentioned in the receipt:
+
+```bash
+grep -c "| F-NNN |" .vibe-check/vc-audit/[artifact-filename]
+```
+
+Substitute the actual finding ID and artifact filename (e.g., `grep -c "| F-007 |" playlist-insights.md`). If the count is **0**: the finding was written to the pass log receipt but was never appended as a row to the `## Findings` table — it is invisible to Phase 6 and will never be tracked, acted on, or counted toward convergence. Write the missing row now:
+
+`| F-NNN | pass N | severity (conf) | file:line | description | Open |`
+
+Do NOT update the progress checklist (Step 4a) and do NOT move to the next surface until every F-NNN cited in this receipt returns a count ≥ 1 from the grep above. A finding that exists only in the pass log narrative has the same standing as no finding.</mandatory>
 
 <walk-rules>
 
@@ -914,6 +975,14 @@ Confidence guide (include as `(N/10)` next to severity on every F-NNN finding):
 
 ### Adversarial pass
 
+<mandatory>**Pre-adversarial gate.** Before collecting the subagent result, verify Phase 5 "First" completed — run:
+
+```bash
+grep -c "^## Pass [0-9]* progress" .vibe-check/vc-audit/[artifact-filename]
+```
+
+Count must be **0**. If **> 0**: the `## Pass N progress` section still exists — the surface walk is incomplete or Phase 5 "First" was skipped. Return to Phase 5 "First" now: check `grep -c "- \[ \]"`, walk any remaining surfaces, then complete Phase 5 "First" before returning here. Do not collect the subagent result until this grep returns 0.</mandatory>
+
 The adversarial subagent always runs. Collect its result now:
 
 <mandatory>Collect the background subagent result dispatched at the start of Phase 4. The subagent ran in parallel while the main walk executed — its findings should now be available. If it has not yet completed, wait for it now.
@@ -1009,6 +1078,14 @@ Example: the artifact already has F-001 through F-005. The subagent returns find
 
 ## Phase 6 — Fix and loop
 
+<mandatory>**Phase 6 entry gate.** Before doing anything else in Phase 6, run:
+
+```bash
+grep -c "^### Pass .* — in progress" .vibe-check/vc-audit/[artifact-filename]
+```
+
+Quote the output verbatim. If the count is **> 0**: Phase 5 did not complete — the pass log header was never finalized from `— in progress` to a date. Return to Phase 5 now and complete it before continuing. Do not run the auto-fix pass or any other Phase 6 step until this grep returns **0**.</mandatory>
+
 **Auto-fix pass (before decisions):** Use the Read tool to read the current findings table. Scan for every Open row that qualifies for auto-fix:
 - Severity is `high` or `critical` — always qualifies, regardless of confidence
 - Severity is `low` or `medium` AND confidence is `7/10` or higher (parse the `(N/10)` value from the Severity cell)
@@ -1072,8 +1149,13 @@ After the pass report:
    - Fix now → finding stays Open; it moves to "Acting on" in the pass report and gets fixed in step 1 of this phase
    - Defer → immediately Edit the finding's Status cell from `Open` to `Deferred (pass N) — [reason if given]`. If the finding is tagged `[pre-existing]`, append "— create a ticket to address this issue" to the reason. Do not proceed to the next finding until the Status cell is updated.
    - Dismiss → immediately Edit the finding's Status cell from `Open` to `Dismissed (pass N) — [user's stated reason]`. Do not proceed to the next finding until the Status cell is updated.
-3. Once fixes are applied and decisions recorded, increment `**Passes completed:**` in
-   the artifact header, then run the **pass checkpoint**.
+3. Once fixes are applied and decisions recorded, use the Edit tool to increment `**Passes completed:**` in the artifact header (change `**Passes completed:** N-1` to `**Passes completed:** N` where N is the current pass number). Then run:
+
+   ```bash
+   grep "Passes completed:" .vibe-check/vc-audit/[artifact-filename]
+   ```
+
+   Quote the output verbatim. If the number shown is not N: re-edit the header now and re-grep to confirm before continuing. Then run the **pass checkpoint**.
 
    **Before running the pass checkpoint: resolve all open findings.**
    If any rows with Status = Open remain in the findings table, do not proceed to the checkpoint yet.
@@ -1145,18 +1227,16 @@ After the pass report:
    - Take any other action
    until AskUserQuestion has been called and the user has responded. This applies regardless of pass outcome, finding count, or how trivial the findings were. There are no exceptions. The AskUserQuestion tool call is the only valid communication channel for the pass checkpoint.
 
-   Call AskUserQuestion with the pass checkpoint. Use this exact format — plain text, no markdown:
+   Call AskUserQuestion with the pass checkpoint. AskUserQuestion strips line breaks — use ` | ` as a section separator so the text remains readable in a single line. Use this exact format — plain text, no markdown:
 
    **Question text:**
    ```
-   Pass [N] complete
+   Pass [N] complete | fixed [N] · deferred [N] · dismissed [N] · new [N] | still open: [N][If CONVERGENCE_CONDITIONS_MET: add " | two consecutive clean passes"][If scoped audit with uncovered files: add " | uncovered: [list]"] | [artifact path]
+   ```
 
-   This pass: [N] fixed · [N] deferred · [N] dismissed · [N] new findings
-   Still open: [N] findings
-   [If CONVERGENCE_CONDITIONS_MET: add a blank line then "Two consecutive clean passes — no findings opened in either pass."]
-   [If scoped audit with uncovered files: add "Uncovered files: [list]"]
-
-   Artifact: .vibe-check/vc-audit/[branch-name].md
+   Example (pass 22, one finding opened and fixed, nothing open):
+   ```
+   Pass 22 complete | fixed 1 · deferred 0 · dismissed 0 · new 1 | still open: 0 | .vibe-check/vc-audit/playlist-insights.md
    ```
 
    **Options — always include these three:**

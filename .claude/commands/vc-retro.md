@@ -1,7 +1,7 @@
 <!-- AUTO-GENERATED from src/vc-retro.md.tmpl — do not edit directly -->
 # /vc-retro
 
-<!-- version: 2026-06-18.1 -->
+<!-- version: 2026-06-20.2 -->
 
 A time-based retrospective skill that reviews your git history for the period since your
 last retro (up to 31 days). Quantifies what shipped, identifies hotspot files, checks
@@ -38,7 +38,7 @@ Read the JSON from stdout and check the `vc-retro` entry.
 
 <output-handlers>
 
-**`vc-retro` version matches `2026-06-18.1`**: proceed silently.
+**`vc-retro` version matches `2026-06-20.2`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -60,7 +60,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-18.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-20.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -70,7 +70,7 @@ If Continue: proceed to Phase 0.
 3. Use the Bash tool to download and overwrite the skill file in one step:
    - bash/zsh: `curl -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-retro.md -o "[project-root]/.claude/commands/vc-retro.md"`
    - PowerShell: `curl.exe -fsSL https://raw.githubusercontent.com/recycledwhitetrash/vibe-check/main/.claude/commands/vc-retro.md -o "[project-root]/.claude/commands/vc-retro.md"`
-4. If curl exits 0: tell the user "Updated to the latest version — reloading skill from disk." Then use the Read tool to read `[project-root]/.claude/commands/vc-retro.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete.
+4. If curl exits 0: tell the user "Updated to the latest version — reloading and resuming." Then use the Read tool to read `[project-root]/.claude/commands/vc-retro.md`. Proceed to Phase 0 of the updated skill, following the instructions just read. Do not re-run the version check — the update is already complete. Do NOT stop, do NOT ask the user to re-run the skill — continue executing from Phase 0 immediately.
 5. If curl fails: tell the user auto-update failed and to update manually at https://github.com/recycledwhitetrash/vibe-check. Do not continue.
 
 ---
