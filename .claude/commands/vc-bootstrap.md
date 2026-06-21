@@ -1,7 +1,7 @@
 <!-- AUTO-GENERATED from src/vc-bootstrap.md.tmpl — do not edit directly -->
 # /vc-bootstrap — Machine Setup
 
-<!-- version: 2026-06-21.2 -->
+<!-- version: 2026-06-21.3 -->
 
 Setup for the vibe-check suite. Configures git, installs and authenticates GitHub CLI,
 installs gitleaks, and generates a security-baseline `.gitignore` for your project. Orients
@@ -22,7 +22,7 @@ Read the JSON from stdout and check the `vc-bootstrap` entry.
 
 <output-handlers>
 
-**`vc-bootstrap` version matches `2026-06-21.2`**: proceed silently.
+**`vc-bootstrap` version matches `2026-06-21.3`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -44,7 +44,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-21.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-21.3`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -858,71 +858,60 @@ Call AskUserQuestion — "Want to install a notification that alerts you when Cl
 **If "Yes — install globally"**: run:
 
 ```bash
-python3 - << 'PYEOF'
-import json, os
-path = os.path.expanduser("~/.claude/settings.json")
-try:
-    with open(path) as f: s = json.load(f)
-except FileNotFoundError: s = {}
-cmd = (
-    "afplay /System/Library/Sounds/Ping.aiff 2>/dev/null || "
-    "powershell.exe -NoProfile -Command "
-    "\"Add-Type -AssemblyName System.Runtime.WindowsRuntime; "
-    "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime] | Out-Null; "
-    "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType=WindowsRuntime] | Out-Null; "
-    "\\$xml = [Windows.Data.Xml.Dom.XmlDocument]::new(); "
-    "\\$xml.LoadXml('<toast><visual><binding template=\\\"ToastText01\\\"><text id=\\\"1\\\">Claude Code needs input</text></binding></visual></toast>'); "
-    "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Claude Code').Show([Windows.UI.Notifications.ToastNotification]::new(\\$xml))\" "
-    "2>/dev/null || notify-send 'Claude Code' 'Waiting for input' 2>/dev/null || true"
-)
-hook_entry = {"type": "command", "command": cmd}
-hooks = s.setdefault("hooks", {})
-pr = hooks.setdefault("PermissionRequest", [])
-existing = next((e for e in pr if e.get("matcher") == ""), None)
-if existing is None:
-    pr.append({"matcher": "", "hooks": [hook_entry]})
-elif not any(h.get("command","").startswith("afplay") for h in existing.get("hooks", [])):
-    existing.setdefault("hooks", []).append(hook_entry)
-else:
-    print("Notification hook already installed globally."); exit(0)
-with open(path, "w") as f: json.dump(s, f, indent=2); f.write("\n")
-print("Notification hook installed globally.")
-PYEOF
+node - << 'JSEOF'
+const fs = require('fs'), os = require('os'), path = require('path');
+const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+let s = {};
+try { s = JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch(e) {}
+const cmd = 'afplay /System/Library/Sounds/Ping.aiff 2>/dev/null || '
+  + 'powershell.exe -NoProfile -Command '
+  + '"Add-Type -AssemblyName System.Runtime.WindowsRuntime; '
+  + '[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime] | Out-Null; '
+  + '[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType=WindowsRuntime] | Out-Null; '
+  + '\\$xml = [Windows.Data.Xml.Dom.XmlDocument]::new(); '
+  + '\\$xml.LoadXml(\'<toast><visual><binding template=\\"ToastText01\\"><text id=\\"1\\">Claude Code needs input</text></binding></visual></toast>\'); '
+  + '[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier(\'Claude Code\').Show([Windows.UI.Notifications.ToastNotification]::new(\\$xml))" '
+  + '2>/dev/null || notify-send \'Claude Code\' \'Waiting for input\' 2>/dev/null || true';
+const hookEntry = {type: 'command', command: cmd};
+const hooks = s.hooks = s.hooks || {};
+const pr = hooks.PermissionRequest = hooks.PermissionRequest || [];
+const existing = pr.find(e => e.matcher === '');
+if (!existing) { pr.push({matcher: '', hooks: [hookEntry]}); }
+else if (!existing.hooks.some(h => (h.command || '').startsWith('afplay'))) { existing.hooks.push(hookEntry); }
+else { console.log('Notification hook already installed globally.'); process.exit(0); }
+fs.mkdirSync(path.dirname(settingsPath), {recursive: true});
+fs.writeFileSync(settingsPath, JSON.stringify(s, null, 2) + '\n');
+console.log('Notification hook installed globally.');
+JSEOF
 ```
 
 **If "Yes — install for this project only"**: run:
 
 ```bash
-python3 - << 'PYEOF'
-import json, os
-path = ".claude/settings.json"
-try:
-    with open(path) as f: s = json.load(f)
-except FileNotFoundError: s = {}
-cmd = (
-    "afplay /System/Library/Sounds/Ping.aiff 2>/dev/null || "
-    "powershell.exe -NoProfile -Command "
-    "\"Add-Type -AssemblyName System.Runtime.WindowsRuntime; "
-    "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime] | Out-Null; "
-    "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType=WindowsRuntime] | Out-Null; "
-    "\\$xml = [Windows.Data.Xml.Dom.XmlDocument]::new(); "
-    "\\$xml.LoadXml('<toast><visual><binding template=\\\"ToastText01\\\"><text id=\\\"1\\\">Claude Code needs input</text></binding></visual></toast>'); "
-    "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Claude Code').Show([Windows.UI.Notifications.ToastNotification]::new(\\$xml))\" "
-    "2>/dev/null || notify-send 'Claude Code' 'Waiting for input' 2>/dev/null || true"
-)
-hook_entry = {"type": "command", "command": cmd}
-hooks = s.setdefault("hooks", {})
-pr = hooks.setdefault("PermissionRequest", [])
-existing = next((e for e in pr if e.get("matcher") == ""), None)
-if existing is None:
-    pr.append({"matcher": "", "hooks": [hook_entry]})
-elif not any(h.get("command","").startswith("afplay") for h in existing.get("hooks", [])):
-    existing.setdefault("hooks", []).append(hook_entry)
-else:
-    print("Notification hook already installed for this project."); exit(0)
-with open(path, "w") as f: json.dump(s, f, indent=2); f.write("\n")
-print("Notification hook installed for this project.")
-PYEOF
+node - << 'JSEOF'
+const fs = require('fs'), path = require('path');
+const settingsPath = path.join('.claude', 'settings.json');
+let s = {};
+try { s = JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch(e) {}
+const cmd = 'afplay /System/Library/Sounds/Ping.aiff 2>/dev/null || '
+  + 'powershell.exe -NoProfile -Command '
+  + '"Add-Type -AssemblyName System.Runtime.WindowsRuntime; '
+  + '[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime] | Out-Null; '
+  + '[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType=WindowsRuntime] | Out-Null; '
+  + '\\$xml = [Windows.Data.Xml.Dom.XmlDocument]::new(); '
+  + '\\$xml.LoadXml(\'<toast><visual><binding template=\\"ToastText01\\"><text id=\\"1\\">Claude Code needs input</text></binding></visual></toast>\'); '
+  + '[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier(\'Claude Code\').Show([Windows.UI.Notifications.ToastNotification]::new(\\$xml))" '
+  + '2>/dev/null || notify-send \'Claude Code\' \'Waiting for input\' 2>/dev/null || true';
+const hookEntry = {type: 'command', command: cmd};
+const hooks = s.hooks = s.hooks || {};
+const pr = hooks.PermissionRequest = hooks.PermissionRequest || [];
+const existing = pr.find(e => e.matcher === '');
+if (!existing) { pr.push({matcher: '', hooks: [hookEntry]}); }
+else if (!existing.hooks.some(h => (h.command || '').startsWith('afplay'))) { existing.hooks.push(hookEntry); }
+else { console.log('Notification hook already installed for this project.'); process.exit(0); }
+fs.writeFileSync(settingsPath, JSON.stringify(s, null, 2) + '\n');
+console.log('Notification hook installed for this project.');
+JSEOF
 ```
 
 If python3 exits non-zero or is unavailable: tell the user the hook could not be installed automatically, and that they can add it manually by adding the following to their settings.json under `hooks.PermissionRequest`:
