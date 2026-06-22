@@ -15,8 +15,13 @@ allowed-tools:
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
-every applicable lens. During each pass an optional adversarial subagent runs in the
-background in parallel with the structured walk and is collected at the end of the pass.
+every applicable lens. During each pass, two agents run in the background in parallel with
+the structured walk: an adversarial subagent that reviews the same diff independently to
+find what the structured walk missed, and a test integrity agent that applies a 6-pattern
+checklist to all new and modified test files (fixture shape mismatches, sync assertion on
+async throw, fireEvent on disabled elements, prototype mutation restorability, implicit ARIA
+role vs. explicit attribute, non-discriminating assertions). Both are collected at the end
+of the pass.
 
 The skill loops until you declare convergence (two consecutive clean passes with zero open findings). Each session
 produces one artifact (scoped runs get their own separate artifact) that accumulates all

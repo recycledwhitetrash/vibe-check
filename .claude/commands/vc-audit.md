@@ -12,12 +12,17 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-06-21.5 -->
+<!-- version: 2026-06-22.1 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
-every applicable lens. During each pass an optional adversarial subagent runs in the
-background in parallel with the structured walk and is collected at the end of the pass.
+every applicable lens. During each pass, two agents run in the background in parallel with
+the structured walk: an adversarial subagent that reviews the same diff independently to
+find what the structured walk missed, and a test integrity agent that applies a 6-pattern
+checklist to all new and modified test files (fixture shape mismatches, sync assertion on
+async throw, fireEvent on disabled elements, prototype mutation restorability, implicit ARIA
+role vs. explicit attribute, non-discriminating assertions). Both are collected at the end
+of the pass.
 
 The skill loops until you declare convergence (two consecutive clean passes with zero open findings). Each session
 produces one artifact (scoped runs get their own separate artifact) that accumulates all
@@ -53,7 +58,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-06-21.5`**: proceed silently.
+**`vc-audit` version matches `2026-06-22.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -75,7 +80,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-21.5`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-22.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 

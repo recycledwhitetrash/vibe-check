@@ -1,10 +1,13 @@
 <!-- AUTO-GENERATED from src/vc-bootstrap.md.tmpl — do not edit directly -->
 # /vc-bootstrap — Machine Setup
 
-<!-- version: 2026-06-21.3 -->
+<!-- version: 2026-06-22.1 -->
 
 Setup for the vibe-check suite. Configures git, installs and authenticates GitHub CLI,
-installs gitleaks, and generates a security-baseline `.gitignore` for your project. Orients
+installs gitleaks, and generates a security-baseline `.gitignore` for your project. Installs
+the vc-audit compact hook (`vc-audit-resume.js`) that automatically re-injects audit context
+when Claude's context compacts mid-audit. Optionally installs a notification hook that alerts
+you when Claude Code is waiting for your input (permission prompts, questions, etc.). Orients
 you to the full skill suite and routes you to the right starting point. Run this in each
 new project — machine-level steps (git config, GitHub CLI auth, gitleaks) skip automatically
 if already done, but the `.gitignore` baseline and project routing are set up fresh each time.
@@ -22,7 +25,7 @@ Read the JSON from stdout and check the `vc-bootstrap` entry.
 
 <output-handlers>
 
-**`vc-bootstrap` version matches `2026-06-21.3`**: proceed silently.
+**`vc-bootstrap` version matches `2026-06-22.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -44,7 +47,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-21.3`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-06-22.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 

@@ -64,11 +64,11 @@ Copy the `.claude/commands/` directory from this repo into the root of your proj
 
 **What it does:**
 
-Checks that git, GitHub CLI, and gitleaks are installed — and installs them for you on macOS and Windows automatically, or attempts the install on Linux/WSL and pauses for you to confirm if sudo requires interaction. Configures your git name and email if they are not set. Authenticates GitHub CLI with step-by-step browser instructions. Adds a security-baseline `.gitignore` to your project that blocks common secret and credential files (`.env`, private keys, Terraform state, Firebase config, etc.) from ever being committed. Writes a summary of everything it set up to `.vibe-check/vc-bootstrap.md`. Ends by telling you exactly what to run next based on whether you have an existing project or are starting fresh.
+Checks that git, GitHub CLI, and gitleaks are installed — and installs them for you on macOS and Windows automatically, or attempts the install on Linux/WSL and pauses for you to confirm if sudo requires interaction. Configures your git name and email if they are not set. Authenticates GitHub CLI with step-by-step browser instructions. Adds a security-baseline `.gitignore` to your project that blocks common secret and credential files (`.env`, private keys, Terraform state, Firebase config, etc.) from ever being committed. Installs the vc-audit compact hook (`vc-audit-resume.js`) that automatically re-injects audit context when Claude's context compacts mid-audit. Optionally installs a notification hook that plays a sound when Claude Code is waiting for your input. Writes a summary of everything it set up to `.vibe-check/vc-bootstrap.md`. Ends by telling you exactly what to run next based on whether you have an existing project or are starting fresh.
 
 **Why it's useful:**
 
-Most new developers hit frustrating setup problems — git is not configured, GitHub CLI is not connected, secrets end up in version control. Bootstrap eliminates all of those in one run and makes sure the tooling that the other commands depend on is actually in place before you need it.
+Most new developers hit frustrating setup problems — git is not configured, GitHub CLI is not connected, secrets end up in version control. Bootstrap eliminates all of those in one run, installs the hooks that make `/vc-audit` more resilient during long sessions, and makes sure the tooling that the other commands depend on is actually in place before you need it.
 
 ---
 
@@ -107,7 +107,7 @@ Each finding is recorded in the audit artifact immediately when discovered, with
 
 After fixes are applied, it re-reads the full diff and walks every surface again from scratch. It keeps looping until two consecutive passes find zero open findings — that is convergence. The audit artifact accumulates the full history across all passes: what was found, what was fixed, what was deferred, and what was dismissed, with every resolved finding cross-referenced back to its original number.
 
-If adversarial subagents are enabled: after each pass, a second agent with no prior context reviews the same diff independently — its only job is finding what the structured walk missed.
+After each pass, two agents run in parallel: an adversarial agent with no prior context that finds what the structured walk missed, and a test integrity agent that applies a 6-pattern checklist to all new and modified test files — catching fixture shape mismatches, sync assertions on async functions, fireEvent on disabled elements, prototype mutation that won't be restored, implicit ARIA role assumptions, and non-discriminating assertions that pass even when the bug is reintroduced.
 
 When used after `/vc-onboard` on existing code with no diff, it automatically switches to FILE_READ_MODE and reviews the designated chunk files directly. Supports LARGE_DIFF detection to avoid context exhaustion, and resumes automatically after a long session compacts.
 

@@ -225,7 +225,8 @@ Skills live in `.claude/commands/` in the project root. Artifacts go to `.vibe-c
 
 **`/vc-bootstrap`** — Checks that git, GitHub CLI, and gitleaks are installed (installs
 them if needed). Configures git name/email. Authenticates GitHub CLI. Adds a
-security-baseline `.gitignore`. Writes a summary to `.vibe-check/vc-bootstrap.md`.
+security-baseline `.gitignore`. Installs the vc-audit compact hook and optionally a
+notification hook. Writes a summary to `.vibe-check/vc-bootstrap.md`.
 
 **`/vc-plan`** — Reads project context, guides a structured planning conversation (scope,
 status quo, narrowest useful version, premise challenge, risks, security). Runs adversarial
@@ -234,10 +235,12 @@ subagent review of the plan. Creates a branch, writes a plan to
 `.vibe-check/vc-plan/roadmap.md`.
 
 **`/vc-audit`** — Reads the diff between the feature branch and main. Applies review
-lenses (security, error handling, auth, test coverage, etc.). Applies high-confidence fixes
-directly with the Edit tool; asks for user decisions on ambiguous findings. Loops until two
-consecutive passes find zero open findings (convergence). Records everything in the audit
-artifact. Switches to FILE_READ_MODE when reviewing code with no diff (e.g., after vc-onboard).
+lenses (security, error handling, auth, test coverage, etc.). Each pass runs an adversarial
+subagent and a test integrity agent in the background (6-pattern test quality checklist).
+Applies high-confidence fixes directly with the Edit tool; asks for user decisions on
+ambiguous findings. Loops until two consecutive passes find zero open findings (convergence).
+Records everything in the audit artifact. Switches to FILE_READ_MODE when reviewing code
+with no diff (e.g., after vc-onboard).
 
 **`/vc-ship`** — Runs gitleaks (secret scan — stops if secrets found). Runs linter. Checks
 test coverage vs 80% goal, writes missing tests if needed. Scans for files that shouldn't

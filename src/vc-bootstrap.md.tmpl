@@ -3,7 +3,10 @@
 <!-- version: {{VERSION}} -->
 
 Setup for the vibe-check suite. Configures git, installs and authenticates GitHub CLI,
-installs gitleaks, and generates a security-baseline `.gitignore` for your project. Orients
+installs gitleaks, and generates a security-baseline `.gitignore` for your project. Installs
+the vc-audit compact hook (`vc-audit-resume.js`) that automatically re-injects audit context
+when Claude's context compacts mid-audit. Optionally installs a notification hook that alerts
+you when Claude Code is waiting for your input (permission prompts, questions, etc.). Orients
 you to the full skill suite and routes you to the right starting point. Run this in each
 new project — machine-level steps (git config, GitHub CLI auth, gitleaks) skip automatically
 if already done, but the `.gitignore` baseline and project routing are set up fresh each time.

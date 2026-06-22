@@ -43,6 +43,30 @@ and in version control.
 
 ---
 
+## Build system
+
+The skill files installed into `.claude/commands/` are generated from source templates in
+`src/*.md.tmpl` via `build.py` and committed as built artifacts — developers install the
+pre-built files directly and never interact with the build system.
+
+Template tokens (`{{VERSION}}`, `{{SKILL_NAME}}`, `{{LOCAL_CONFIG}}`, `{{SLUG_RULE}}`, and
+others) are resolved at build time. `src/sections/` contains shared Markdown blocks that
+are included verbatim across multiple templates. `src/data/` contains JSON files that are
+expanded into multiple tokens simultaneously — for example, `sensitive-patterns.json`
+expands into the `.gitignore` block, the `SENSITIVE_READ_TABLE`, and the
+`SENSITIVE_EXCLUSIONS` token used across bootstrap, onboard, and ship.
+
+`versions.json` at the repo root tracks the current version of each skill. `build.py`
+auto-increments the version on every build that changes a compiled file and fails with a
+non-zero exit code if any `{{...}}` token remains unreplaced in the output — catching
+missing template data before the build is committed. A `--diff` flag prints a summary of
+what changed without writing files; `--check` validates without writing.
+
+The `.claude/hooks/` and `.claude/lenses/` directories are also built outputs managed by
+`build.py`. Hook scripts are written as source files in `src/hooks/` and copied on build.
+
+---
+
 ## Security
 
 Security is treated as a hard-stop concern in vibe-check, not a suggestion.
@@ -145,6 +169,15 @@ This catches test suites that pass coverage metrics but are not meaningfully pro
 Long AI sessions — especially code reviews of large diffs — can exceed Claude's context
 window and trigger automatic compaction. vibe-check is designed to survive this cleanly
 without losing state or requiring a restart.
+
+### Compact hook
+
+`/vc-bootstrap` installs a `SessionStart` hook (`vc-audit-resume.js`) that fires on
+context compaction events during an active `/vc-audit` session. The hook re-injects the
+Phase 5 and Phase 6 instructions and the receipt format block directly into the context
+window, so Claude has the critical gate instructions available immediately after compaction
+without requiring the developer to manually resume. The hook script is stored in
+`.claude/hooks/` and registered in `.claude/settings.json` during bootstrap.
 
 ### Artifact-as-source-of-truth
 
@@ -273,6 +306,14 @@ Configures `git user.name`, `git user.email`, and `init.defaultBranch`. Authenti
 `gh` CLI with step-by-step browser instructions. Writes the security-baseline `.gitignore`.
 Writes a bootstrap artifact to `.vibe-check/vc-bootstrap.md`.
 
+Installs the compact hook: downloads `vc-audit-resume.js` into `.claude/hooks/` and
+registers it as a `SessionStart` hook in `.claude/settings.json`. The hook fires on
+compaction events during `/vc-audit` sessions to re-inject critical phase instructions.
+
+Offers an optional notification hook (`PermissionRequest`) that plays a system sound when
+Claude Code is waiting for developer input — installed globally on macOS or per-project
+on other platforms.
+
 Idempotent: re-running on an already-bootstrapped project skips machine-level steps that
 are already configured and re-runs project-level steps (`.gitignore` check, orientation).
 
@@ -316,8 +357,20 @@ Loops until convergence. Supports FILE_READ_MODE for reviewing chunk files when 
 exists (after `/vc-onboard`). Supports LARGE_DIFF detection with structured scope options.
 Resumes automatically after context compaction by re-reading the artifact.
 
-Adversarial subagent (when enabled): after each pass, a second Claude instance reviews
-the same diff with no prior context. Its output is appended to the audit artifact.
+**Two background agents per pass:**
+- *Adversarial subagent*: a second Claude instance with no prior context that reviews the
+  same diff independently. Its prompt includes explicit checklist rules targeting the six
+  historically-missed blind spot categories: ELI10 comment compliance, parallel function
+  bug class, pre-existing code in modified files, CSS edge cases, and aria-live on dynamic
+  elements.
+- *Test integrity agent*: reviews all new and modified test files against a 6-pattern
+  checklist — fixture shape mismatches, sync assertion on async throw, `fireEvent` on
+  disabled elements (should be `userEvent`), prototype mutation restorability, implicit ARIA
+  role vs. explicit attribute assertion, and non-discriminating assertions that pass even if
+  the bug is reintroduced. Output is tagged `[test-integrity]` in the artifact.
+
+Both agents are dispatched with `run_in_background: true` at the start of the surface walk
+and collected before the pass closes.
 
 ### /vc-ship
 
