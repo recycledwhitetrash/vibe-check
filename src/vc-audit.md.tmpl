@@ -480,7 +480,7 @@ All findings use the `F-NNN` prefix. The counter starts at 001 when the artifact
    - **Audit artifact**: read `**Base branch:**` from the artifact header. Use that value.
    - **Roadmap**: use the Read tool to check `.vibe-check/vc-plan/roadmap.md`. If it exists and has a `**Base branch:**` line, use that value.
    - **Derive**: run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it returns a value, strip the `refs/remotes/origin/` prefix directly — do not use shell utilities. If it returns nothing: run `git remote set-head origin -a 2>/dev/null`, then re-run `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`. If it now returns a value, strip the prefix. If still nothing: run `git for-each-ref --format='%(refname:short)' refs/heads/` and identify the default branch (priority: `main` > `master` > `develop`). Then call AskUserQuestion — "I derived `[branch]` as the base branch for this audit. Is that correct?" — Options: "Yes — use [branch]" / "No — use a different branch (Other)". Use the confirmed or entered value as BASE_BRANCH.
-2. If the most recent pass entry in the pass log shows `— in progress`, that pass did not complete — most likely due to context compaction. Check the artifact for a `## Pass N progress` section immediately following that marker (N = the in-progress pass number). If found: read the `[x]`/`[ ]` markers — `[x]` surfaces were already walked and their findings are already written to the artifact; `[ ]` surfaces were not. Store the `[ ]` surfaces as REMAINING_SURFACES. Note whether `subagent:` shows `dispatched` or `pending`. If `## Pass N progress` is not found (compaction happened before the section was written): restart the pass from the beginning.
+2. If the most recent pass entry in the pass log shows `— in progress`, that pass did not complete — most likely due to context compaction. Check the artifact for a `## Pass N progress` section immediately following that marker (N = the in-progress pass number). If found: read the `[x]`/`[ ]` markers — `[x]` surfaces were already walked and their findings are already written to the artifact; `[ ]` surfaces were not. Store the `[ ]` surfaces as REMAINING_SURFACES. Note whether `subagent:` shows `dispatched` or `pending`, and whether `test-agent:` shows `dispatched` or `pending`. If `## Pass N progress` is not found (compaction happened before the section was written): restart the pass from the beginning.
 3. Derive the current pass number, all Open-status findings, and the clean pass count from the artifact. Do not rely on conversation memory. Scan the ID column of the findings table for the highest F-NNN number. Store this value as NEXT_F_NUM. All new findings in this pass must be numbered starting from NEXT_F_NUM + 1. Re-read the full surface map section from the artifact and store every surface listed. If resuming from a `## Pass N progress` section (step 2 above), only the `[ ]` surfaces (REMAINING_SURFACES) need to be walked this session — `[x]` surfaces are already complete.
 4. The adversarial subagent always runs — no configuration check needed.
 5. Re-derive FILE_READ_MODE and UNTRACKED_FILES: run `git diff BASE_BRANCH...HEAD --shortstat -- ':!.claude/**' ':!.vibe-check/**' ':!package-lock.json' ':!yarn.lock' ':!pnpm-lock.yaml' ':!npm-shrinkwrap.json' ':!composer.lock' ':!Gemfile.lock' ':!poetry.lock' ':!Pipfile.lock' ':!Cargo.lock' ':!go.sum' ':!go.work.sum' ':!package.json' ':!vite.config.*' ':!webpack.config.*' ':!rollup.config.*' ':!esbuild.config.*'`. If non-empty: normal diff mode. If empty: run `git status --porcelain`, filter out `.vibe-check/` and `.claude/` paths. If any M/A/R entries remain: working tree changes exist, proceed in normal diff mode. Store `??` entries (filtered by sensitive exclusions and excluding `.claude/` and `.vibe-check/` paths) as UNTRACKED_FILES. If both committed shortstat and filtered status are empty AND the plan stub at `.vibe-check/vc-plan/[branch-slug].md` contains a `## Chunk files` section: FILE_READ_MODE = true.
@@ -506,6 +506,7 @@ Surface receipts are appended here during the walk (Step 4b). The `— in progre
 ```markdown
 ## Pass N progress
 subagent: pending
+test-agent: pending
 - [ ] [Surface name] — [file1.ts file2.ts ...]
 - [ ] [Surface name] — [file3.ts]
 ```
@@ -517,6 +518,8 @@ For each surface, list the file paths associated with it from the surface map (s
 **If this is a resumed pass** (REMAINING_SURFACES loaded from `## Pass N progress` in the recovery step): do not rewrite it. Use the existing section as-is.
 
 **Dispatch the adversarial subagent** when the `subagent:` line in `## Pass N progress` shows `pending`: dispatch now using the Agent tool with `run_in_background: true`. Use the subagent prompt from the Adversarial pass section below, omitting the "do not repeat open findings" instruction — the subagent reads the full branch diff itself; deduplication happens at Phase 6 when results are collected. Immediately update the `subagent:` line in `## Pass N progress` to `dispatched`.
+
+**Dispatch the test integrity agent** when the `test-agent:` line in `## Pass N progress` shows `pending`: dispatch now using the Agent tool with `run_in_background: true`. Use the test integrity prompt from the Test integrity pass section in Phase 5. Immediately update the `test-agent:` line in `## Pass N progress` to `dispatched`.
 
 **Walk each surface one at a time.** For each `[ ]` surface in `## Pass N progress` (in order from top to bottom):
 
@@ -862,6 +865,11 @@ Rules:
 2. Do not repeat findings already listed as Open in the artifact — check that section before reporting.
 3. Classify each finding as FIXABLE (you can state the fix direction) or INVESTIGATE (needs human judgment to resolve).
 4. For test files (`*.test.*`, `*.spec.*`): report only test *correctness* issues (wrong assertions, bad async handling, missing teardown, mocks that hide real production behavior). Do NOT report missing test scenarios or coverage gaps — test coverage is handled by vc-ship.
+5. For every non-obvious operation in new code, check whether an inline comment explains the WHY (ELI10 standard per CLAUDE.md — comments must explain why, not what). Flag any new function or control flow branch where the behavior is not self-evident from the identifier name alone and has no accompanying comment.
+6. For every bug class fixed in function A, check if any structurally parallel function B in the same file or module has the identical bug class. Sibling functions with the same pattern are the most common missed finding.
+7. For every modified file, check pre-existing adjacent code (not just the diff lines) that touches the same data paths for the same class of issue found in the diff.
+8. In new or modified CSS: flag `:focus` where `:focus-visible` is appropriate; `overflow: hidden` on fixed-width flex containers that may clip dynamic content; missing `min-width: 0` on flex children that need to shrink.
+9. For any element that appears or disappears dynamically (conditional render, toggle, loading state), verify its container has `aria-live="polite"` so screen readers announce the change.
 
 Output one finding per line in this format:
 [FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
@@ -891,6 +899,11 @@ Rules:
 2. Do not repeat findings already listed as Open in the artifact — check that section before reporting.
 3. Classify each finding as FIXABLE (you can state the fix direction) or INVESTIGATE (needs human judgment to resolve).
 4. For test files (`*.test.*`, `*.spec.*`): report only test *correctness* issues (wrong assertions, bad async handling, missing teardown, mocks that hide real production behavior). Do NOT report missing test scenarios or coverage gaps — test coverage is handled by vc-ship.
+5. For every non-obvious operation in code, check whether an inline comment explains the WHY (ELI10 standard per CLAUDE.md — comments must explain why, not what). Flag any function or control flow branch where the behavior is not self-evident from the identifier name alone and has no accompanying comment.
+6. For every bug class found in function A, check if any structurally parallel function B in the same file or module has the identical bug class. Sibling functions with the same pattern are the most common missed finding.
+7. Check pre-existing adjacent code that touches the same data paths for the same class of issue you are reviewing.
+8. In CSS: flag `:focus` where `:focus-visible` is appropriate; `overflow: hidden` on fixed-width flex containers that may clip dynamic content; missing `min-width: 0` on flex children that need to shrink.
+9. For any element that appears or disappears dynamically (conditional render, toggle, loading state), verify its container has `aria-live="polite"` so screen readers announce the change.
 
 Output one finding per line in this format:
 [FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
@@ -912,7 +925,78 @@ Example: the artifact already has F-001 through F-005. The subagent returns find
   `| F-NNN | pass N | [severity] (6/10) | file:line | [adversarial][INVESTIGATE] description | Open |`
   These go through the same fix/defer/dismiss decision protocol in Phase 6 as any other finding.
 - If **NO ADDITIONAL FINDINGS**: append to the pass log: `Adversarial pass: no additional findings.`
-- If the subagent is **unavailable or errors**: append to the pass log: `Adversarial pass: unavailable.` Continue to Phase 6.
+- If the subagent is **unavailable or errors**: append to the pass log: `Adversarial pass: unavailable.` Proceed to the test integrity pass.
+
+### Test integrity pass
+
+<mandatory>Collect the background test integrity agent result dispatched at the start of Phase 4. If it has not yet completed, wait for it now.
+
+The test integrity agent reads only test files from the diff and checks for correctness issues that the main walk typically misses. Process its output the same way as the adversarial agent: renumber all findings using the next F-NNN from the counter (read the findings table first to get the current highest ID), skip any finding that duplicates an existing Open row.
+
+The test integrity prompt (for reference only — already dispatched):
+
+**If FILE_READ_MODE is false** (normal diff-based audit): substitute BASE_BRANCH, artifact path, and scope paths into this prompt. If this is a scoped audit, append the scope path(s) after the sensitive file exclusions in the git diff command.
+
+"Before reading any file, skip it if its filename or path matches any of these sensitive file patterns:
+`.env`, `.env.*`, `.envrc`, `.envrc.*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.p8`, `*.pkcs8`,
+`*.jks`, `*.keystore`, `*.ppk`, `id_rsa`, `id_ecdsa`, `id_ed25519`, `id_dsa`, `*.secret`,
+`*.secrets`, `*.vault`, `*.enc`, `.netrc`, `.npmrc`, `.yarnrc`, `.yarnrc.yml`, `.pypirc`,
+`*credentials.json`, `*service-account*.json`, `*-key.json`, `*.tfstate`, `*.tfstate.backup`,
+`*.tfvars`, `*.tfvars.json`, `google-services.json`, `GoogleService-Info.plist`, `kubeconfig`,
+`*.kubeconfig`, `docker-compose.override.yml`, `docker-compose.*.yml`, `local_settings.py`,
+`settings.py`, `application_default_credentials.json`, `.htpasswd`, `htpasswd`, `database.yml`,
+`wrangler.toml`, `fly.toml`, `*secrets*`, `*password*`, `*passwd*`
+
+Run this git command and read the full output:
+
+git diff [BASE_BRANCH] -- {{SENSITIVE_EXCLUSIONS}} [scope paths if scoped audit]
+
+Then use the Read tool to read the audit artifact at [artifact path]. From the artifact, check the ## Findings section for any findings already listed as Open.
+
+From the git diff output, identify all test files (paths matching `*.test.*`, `*.spec.*`, `*_test.*`, or `test_*.py`). For each test file that appears in the diff, use the Read tool to read the full current file directly (not just the diff lines). If no test files appear in the diff, output exactly: NO ADDITIONAL FINDINGS
+
+Your task: find test correctness issues — tests that pass when they should fail, or that verify the wrong thing. Think like a QA engineer reviewing whether tests actually catch what they claim to catch.
+
+Check each test file against these six patterns:
+1. **Fixture shape mismatch** — does the test fixture match the real data shape the code under test expects? (e.g. `{id, name}` when code expects `{id, name, images: [{url: string}]}`) Quote both the fixture definition and the line in production code that consumes it.
+2. **Sync assertion on async throw** — is `.toThrow()` or `.toThrowError()` called without `await`? (Async functions return a Promise — a plain `.toThrow()` always passes because the function returns a Promise instead of throwing; must use `await expect(fn()).rejects.toThrow()`)
+3. **`fireEvent` on disabled elements** — is `fireEvent.click` or `fireEvent.change` used on an element with a `disabled` attribute? JSDOM's native `disabled` attribute is not enforced by `fireEvent` (it bypasses the browser event pipeline) — use `userEvent.click` for realistic simulation, or assert via `not.toHaveBeenCalled()` that the handler was blocked.
+4. **Direct prototype mutation** — does the test assign directly to a class prototype or global object prototype (e.g. `Navigator.prototype.clipboard = mockClipboard`)? `vi.restoreAllMocks()` and `vi.resetAllMocks()` do not restore these mutations — the original value must be saved before the test and restored in `afterEach`.
+5. **Implicit ARIA role vs explicit attribute** — does the test use `getByRole()` when the intention is to verify that a `role` attribute explicitly exists? Native HTML elements have implicit ARIA roles (a `<button>` has role `button` even without `role='button'`), so `getByRole('button')` passes whether or not a `role` attribute is present. To assert the attribute exists: use `element.getAttribute('role')` or `expect(element).toHaveAttribute('role', 'button')`.
+6. **Non-discriminating assertion** — would this test pass if the bug it targets were reintroduced? If the assertion only checks that an element exists but not its content, or that a function was called but not with the expected arguments, the test does not prove the behavior is correct.
+
+Rules:
+1. Before reporting any finding, quote the specific lines from the test file that motivate it. If you cannot quote specific lines, do not report it.
+2. Do not repeat findings already listed as Open in the artifact.
+3. Classify each finding as FIXABLE (you can state the fix direction) or INVESTIGATE (needs human judgment).
+
+Output one finding per line in this format:
+[FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
+
+If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"
+
+**If FILE_READ_MODE is true** (chunk branch — no diff): substitute the artifact path into this prompt:
+
+"Use the Read tool to read the audit artifact at [artifact path].
+
+From the artifact, find the surface map table (between `<!-- SURFACE_MAP_START -->` and `<!-- SURFACE_MAP_END -->`, or under the `## Surface map` header). For each row that lists a test file (`*.test.*`, `*.spec.*`, `*_test.*`, `test_*.py`), use the Read tool to read the full file. If no test files are listed in the surface map, output exactly: NO ADDITIONAL FINDINGS
+
+From the artifact, check the ## Findings section for any findings already listed as Open.
+
+Apply the same six patterns and three rules as the diff-based prompt above.
+
+Output one finding per line in this format:
+[FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
+
+If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"</mandatory>
+
+Process the test integrity agent output: apply the same renumbering, deduplication, and table-append rules as the adversarial agent. Use `[test-integrity]` instead of `[adversarial]` in the Description field:
+- For each **FIXABLE** finding: `| F-NNN | pass N | [severity] (N/10) | file:line | [test-integrity] description | Open |`
+- For each **INVESTIGATE** finding: `| F-NNN | pass N | [severity] (6/10) | file:line | [test-integrity][INVESTIGATE] description | Open |`
+- If **NO ADDITIONAL FINDINGS**: append to the pass log: `Test integrity pass: no additional findings.`
+- If the agent is **unavailable or errors**: append to the pass log: `Test integrity pass: unavailable.`
+
+Continue to Phase 6.
 
 </phase>
 
