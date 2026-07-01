@@ -189,29 +189,42 @@ If the source file count is zero after all exclusions: tell the user "No source 
 
 ### Stack detection
 
-From the file list, identify which stacks are present:
+Detect stacks in two passes, cheapest first. **Never use the Read tool for stack
+detection** — it is not needed and is the main cause of context bloat on large codebases.
 
-| Stack | Indicators |
-|---|---|
-| React / frontend | `.tsx`, `.jsx`, `.css`, `components/`, `pages/`, `hooks/` |
-| Supabase | `supabase/`, `.rls.`, `createClient`, `auth.uid()`, `storage.` |
-| PostgreSQL / SQL | `.sql`, `migrations/`, `CREATE TABLE`, `ALTER TABLE` |
-| Node / Express API | `routes/`, `controllers/`, `middleware/`, server `.ts`/`.js` files |
-| Shell / bash scripts | `.sh`, `.bash`, `#!/bin/`, Makefile |
-| ETL / data pipeline | pipeline files, `ingest`, `transform`, `load`, pandas/dbt/Airflow |
-| Native app (iOS/Android) | `.swift`, `.kt`, `.m`, `.cpp`, Xcode/Gradle project files |
-| AI agent | agent orchestration files, `tool_call`, `system_prompt`, memory/context files |
-| MCP server | `mcp`, tool definitions, `ListTools`, `CallTool`, server registration files |
-| Django | `settings.py`, `urls.py`, `views.py`, `models.py`, `manage.py` |
-| React Native | `.ios.tsx`, `.android.tsx`, `react-native`, `metro.config.js`, `Expo` |
-| Browser extension | `manifest.json` with `manifest_version`, `content_scripts` |
-| Serverless / edge | `vercel.json`, `netlify.toml`, `wrangler.toml`, `functions/`, Lambda handler |
-| Firebase | `firebase.json`, `firestore.rules`, `initializeApp`, `getFirestore` |
-| GraphQL | `.graphql`, `resolvers/`, `typeDefs`, `gql`, Apollo |
-| Stripe / payments | `stripe`, `Stripe(`, `loadStripe`, `paymentIntents` |
-| Webhooks | `webhook`, `x-hub-signature`, `svix`, `handleWebhook`, event routing files |
-| Electron | `electron`, `BrowserWindow`, `ipcMain`, `ipcRenderer` |
-| Config / infra | `.tf`, `.yaml`, Dockerfile, Kubernetes manifests |
+1. **Path indicators** — file extensions, directory names, filenames (e.g. `.tsx`,
+   `supabase/`, `manifest.json`, `Dockerfile`). These come free from the Phase 1 file list —
+   no additional tool call needed.
+2. **Content indicators** — code-level strings (e.g. `createClient`, `auth.uid()`,
+   `ipcMain`). For these, use the **Grep tool** (never Read), with `output_mode:
+   "files_with_matches"` and `head_limit` set to a small number (5–10) — you only need to
+   know a stack is present, not every occurrence. Scope each Grep to the source globs from
+   Phase 1 (pass the same glob patterns via Grep's `glob` param) so it never touches
+   dependency/build directories. Combine an indicator group into one regex alternation per
+   stack (e.g. `stripe|Stripe\(|loadStripe|paymentIntents`) instead of one Grep call per
+   string.
+
+| Stack | Indicators | Detection |
+|---|---|---|
+| React / frontend | `.tsx`, `.jsx`, `.css`, `components/`, `pages/`, `hooks/` | path |
+| Supabase | `supabase/`, `.rls.` (path); `createClient`, `auth.uid()`, `storage.` (content) | path + grep |
+| PostgreSQL / SQL | `.sql`, `migrations/` (path); `CREATE TABLE`, `ALTER TABLE` (content) | path + grep |
+| Node / Express API | `routes/`, `controllers/`, `middleware/`, server `.ts`/`.js` files | path |
+| Shell / bash scripts | `.sh`, `.bash`, Makefile (path); `#!/bin/` (content) | path + grep |
+| ETL / data pipeline | pipeline file/dir names, `ingest`, `transform`, `load` (path); pandas/dbt/Airflow imports (content) | path + grep |
+| Native app (iOS/Android) | `.swift`, `.kt`, `.m`, `.cpp`, Xcode/Gradle project files | path |
+| AI agent | agent/memory/context file or dir names (path); `tool_call`, `system_prompt` (content) | path + grep |
+| MCP server | `mcp` in path (path); `ListTools`, `CallTool` (content) | path + grep |
+| Django | `settings.py`, `urls.py`, `views.py`, `models.py`, `manage.py` | path |
+| React Native | `.ios.tsx`, `.android.tsx`, `metro.config.js` (path); `react-native`, `Expo` (content) | path + grep |
+| Browser extension | `manifest.json` (path); `manifest_version`, `content_scripts` (content, grep just that one file) | path + grep |
+| Serverless / edge | `vercel.json`, `netlify.toml`, `wrangler.toml`, `functions/` (path); Lambda handler signature (content) | path + grep |
+| Firebase | `firebase.json`, `firestore.rules` (path); `initializeApp`, `getFirestore` (content) | path + grep |
+| GraphQL | `.graphql`, `resolvers/` (path); `typeDefs`, `gql` (content) | path + grep |
+| Stripe / payments | `stripe` in path (path); `Stripe(`, `loadStripe`, `paymentIntents` (content) | path + grep |
+| Webhooks | `webhook` in path (path); `x-hub-signature`, `svix`, `handleWebhook` (content) | path + grep |
+| Electron | `electron` in path (path); `BrowserWindow`, `ipcMain`, `ipcRenderer` (content) | path + grep |
+| Config / infra | `.tf`, `.yaml`, Dockerfile, Kubernetes manifests | path |
 
 Also read these key config files if present (check the file list first before reading):
 - `package.json` — dependencies, scripts, project name
@@ -235,7 +248,7 @@ questions based on what you found.
 
 <mandatory>Call AskUserQuestion with:
 - Question 1 (always include): "What is the main purpose of this application? Who uses it and what do they do with it? (Type your answer in the Other box below and press Enter.)"
-  - Options: "I'll describe it below ↑" / "See README — it explains the purpose"
+  - Options: "I'll describe it below" / "See README — it explains the purpose"
 - Question 2 (always include): "What type of project is this? Your answer sets the right planning depth and compliance requirements."
   - Options: "Internal tooling for me personally" / "Internal tooling for multiple users at my company" / "Internal tooling that generates client-facing artifacts" / "Client-facing product"
 - Choose 0–1 additional question tailored to what was found. Examples:
@@ -301,9 +314,23 @@ For each chunk, determine:
 
 ### Confirm with user
 
-Present the full proposed chunk breakdown before creating anything. Show each chunk with
-its name, branch slug, file count, and file list — e.g. "Chunk: auth | Branch slug: auth-onboard | Files: 8 | [file list]". Note any splits you made and why. Show the total
-number of chunks to be created.
+Present the full proposed chunk breakdown before creating anything. Format it as plain
+markdown text in your response — **not** as a single code block — so it renders with
+real line breaks and headings. Use this shape, one block per chunk with a blank line
+between chunks:
+
+```
+### [chunk-name] — `[branch-slug]`
+Files: [count]
+
+- [file path]
+- [file path]
+- ...
+
+Notes: [any split you made and why, or omit this line if none]
+```
+
+After all chunks, show the total number of chunks to be created.
 
 <mandatory>Call AskUserQuestion with:
 - Question: "Here is the proposed chunk breakdown. Does this look right? Approve to proceed, or describe changes in Other."
