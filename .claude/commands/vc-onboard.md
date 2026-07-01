@@ -1,7 +1,11 @@
+---
+description: Embeds the vibe-check suite into an existing codebase — scans it into feature chunks, scaffolds git if needed, and writes plan stubs and roadmap entries for each chunk.
+---
 <!-- AUTO-GENERATED from src/vc-onboard.md.tmpl — do not edit directly -->
+
 # /vc-onboard — Codebase Onboarding
 
-<!-- version: 2026-06-20.2 -->
+<!-- version: 2026-07-01.1 -->
 
 Run `/vc-onboard` once to embed the vibe-check suite into an existing project. It scans
 your codebase, breaks it into logical feature chunks, scaffolds git if needed, optionally
@@ -36,7 +40,7 @@ Read the JSON from stdout and check the `vc-onboard` entry.
 
 <output-handlers>
 
-**`vc-onboard` version matches `2026-06-20.2`**: proceed silently.
+**`vc-onboard` version matches `2026-07-01.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -58,7 +62,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-20.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-07-01.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 

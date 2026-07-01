@@ -1,7 +1,11 @@
+---
+description: One-time machine setup for the vibe-check suite — configures git, GitHub CLI, gitleaks, a security-baseline .gitignore, and the audit compact hook, then routes you to the right starting skill.
+---
 <!-- AUTO-GENERATED from src/vc-bootstrap.md.tmpl — do not edit directly -->
+
 # /vc-bootstrap — Machine Setup
 
-<!-- version: 2026-06-22.1 -->
+<!-- version: 2026-07-01.1 -->
 
 Setup for the vibe-check suite. Configures git, installs and authenticates GitHub CLI,
 installs gitleaks, and generates a security-baseline `.gitignore` for your project. Installs
@@ -25,7 +29,7 @@ Read the JSON from stdout and check the `vc-bootstrap` entry.
 
 <output-handlers>
 
-**`vc-bootstrap` version matches `2026-06-22.1`**: proceed silently.
+**`vc-bootstrap` version matches `2026-07-01.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -47,7 +51,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-22.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-07-01.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 

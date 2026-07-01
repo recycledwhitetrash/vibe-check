@@ -1,7 +1,11 @@
+---
+description: Project coordinator for planning a feature or capturing an idea — runs a structured scoping conversation and adversarial review, then produces a copyable implementation guide.
+---
 <!-- AUTO-GENERATED from src/vc-plan.md.tmpl — do not edit directly -->
+
 # /vc-plan
 
-<!-- version: 2026-06-20.2 -->
+<!-- version: 2026-07-01.1 -->
 
 The project coordinator for your entire codebase. Run it before writing code to plan a
 feature, to capture ideas before they slip away, or when you're not sure what to build next.
@@ -47,7 +51,7 @@ Read the JSON from stdout and check the `vc-plan` entry.
 
 <output-handlers>
 
-**`vc-plan` version matches `2026-06-20.2`**: proceed silently.
+**`vc-plan` version matches `2026-07-01.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -69,7 +73,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-20.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-07-01.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 

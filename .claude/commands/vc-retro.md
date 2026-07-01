@@ -1,7 +1,11 @@
+---
+description: Time-based retrospective over your git history — quantifies what shipped, hotspot files, test coverage signal, and planning discipline, with period-over-period comparison.
+---
 <!-- AUTO-GENERATED from src/vc-retro.md.tmpl — do not edit directly -->
+
 # /vc-retro
 
-<!-- version: 2026-06-20.2 -->
+<!-- version: 2026-07-01.1 -->
 
 A time-based retrospective skill that reviews your git history for the period since your
 last retro (up to 31 days). Quantifies what shipped, identifies hotspot files, checks
@@ -38,7 +42,7 @@ Read the JSON from stdout and check the `vc-retro` entry.
 
 <output-handlers>
 
-**`vc-retro` version matches `2026-06-20.2`**: proceed silently.
+**`vc-retro` version matches `2026-07-01.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -60,7 +64,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-06-20.2`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-07-01.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
