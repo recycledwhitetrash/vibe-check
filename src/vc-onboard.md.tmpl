@@ -1,5 +1,13 @@
 ---
 description: Embeds the vibe-check suite into an existing codebase — scans it into feature chunks, scaffolds git if needed, and writes plan stubs and roadmap entries for each chunk.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - AskUserQuestion
 ---
 
 # /vc-onboard — Codebase Onboarding
@@ -408,8 +416,13 @@ From the `git symbolic-ref` output: if it starts with `refs/remotes/origin/`, st
 <output-handlers>
 
 **`git rev-parse` failed** (no git repository):
-Tell the user: "No git repository found — initializing one now."
-Run:
+Tell the user: "No git repository found — setting up `.gitignore` before initializing, so VS Code's Source Control panel doesn't flag the full working tree as untracked."
+
+Run the security baseline check now, before `git init`:
+
+{{GITIGNORE_BASELINE_CHECK}}
+
+Then initialize git:
 ```bash
 git init
 ```
@@ -418,7 +431,7 @@ Then check the current branch:
 git branch --show-current
 ```
 If already on `main` (or the user's configured default), proceed to the **Commit step** directly.
-If on `master` or another name and the user prefers `main`, run `git checkout -b main` to rename it. Then proceed to the **Commit step**.
+If on `master` or another name and the user prefers `main`, run `git checkout -b main` to rename it. If the checkout fails, report the exact error and stop. Then proceed to the **Commit step**.
 
 **`git rev-parse` succeeded AND `git log` returned an error or empty output** (git exists, no commits):
 Tell the user: "Git is initialized but has no commits — committing the existing codebase as the baseline."
@@ -478,7 +491,9 @@ Skip the commit step. The codebase is already committed. Proceed to **Remote set
 
 ### Commit step (only when needed per above)
 
-**Before staging any files**, run the security baseline check:
+**Before staging any files**, run the security baseline check — unless you already ran it
+moments ago in the no-git-repository handler above (`git init` path), in which case skip
+straight to staging:
 
 {{GITIGNORE_BASELINE_CHECK}}
 
@@ -531,13 +546,44 @@ Before pushing, ensure the current branch matches the noted default branch. If n
 - If it does not exist: run `git checkout -b [default-branch]` to create it from current HEAD
 - If it exists: run `git checkout [default-branch]`
 
+<gate>If either checkout command fails, report the exact error and stop. Do not run `gh repo create` while the wrong branch is checked out.</gate>
+
 Tell the user: "Running `gh repo create` to create the remote and push the baseline commit."
 Run:
 ```bash
 gh repo create --source=. --[private|public] --push
 ```
-Substitute `--private` or `--public` based on the user's answer. Report the result to the user. If it fails, tell the user and suggest: "Open the VS Code Source Control panel (branch icon in the left sidebar) and click **Publish to GitHub**."
-Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** [repo url, or "failed — add manually before /vc-ship"]`. After the Edit, use the Read tool to verify `**Remote:** pending` no longer appears. If it does, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact — please change `**Remote:** pending` to `**Remote:** [value]` manually."
+Substitute `--private` or `--public` based on the user's answer.
+
+<gate>Do not update the artifact or proceed to Phase 4 until this step resolves — either the command succeeds, or the user has explicitly chosen to skip via the AskUserQuestion below. A failed `gh repo create` is a decision point, not something to note and move past.</gate>
+
+**If it succeeds:** Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** [repo url]`. After the Edit, use the Read tool to verify `**Remote:** pending` no longer appears. If it does, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact — please change `**Remote:** pending` to `**Remote:** [value]` manually." Then proceed to Phase 4.
+
+**If it fails:** show the user the actual error text from the command output — do not paraphrase it away. Then:
+
+- **If the error indicates the repo name is already taken** (e.g. contains "already exists" / "Name already exists on this account"):
+  <mandatory>Call AskUserQuestion with:
+  - Question: "A GitHub repo with this name already exists on your account. How would you like to proceed?"
+  - Options:
+    - "Link the existing repo as this remote" — I'll paste its URL in Other
+    - "Try a different name" — I'll type the new name in Other
+    - "Skip — I'll set up a remote manually"
+  </mandatory>
+  - If linking existing: run `git remote add origin [url from Other]`, then `git push -u origin [default branch]`. If this fails too, show the error and fall through to the generic failure handling below.
+  - If different name: re-run `gh repo create --source=. --[private|public] --push --name "[name from Other]"`. If it fails again, show the error and fall through to the generic failure handling below.
+  - If skip: fall through to the generic failure handling below.
+
+- **Generic failure handling** (any other error, or a fallthrough from above):
+  <mandatory>Call AskUserQuestion with:
+  - Question: "Setting up the GitHub remote didn't succeed. How would you like to proceed?"
+  - Options:
+    - "Retry the same command"
+    - "Skip — I'll set up a remote manually"
+  </mandatory>
+  - If retry: re-run `gh repo create --source=. --[private|public] --push` once more. If it fails again, stop offering retries and treat as skip.
+  - If skip (or exhausted retry): tell the user: "Open the VS Code Source Control panel (branch icon in the left sidebar) and click **Publish to GitHub**."
+
+In every failure branch, once resolved (linked, renamed-and-created, or explicitly skipped): Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** [repo url if now connected, or "failed — add manually before /vc-ship"]`. After the Edit, use the Read tool to verify `**Remote:** pending` no longer appears. If it does, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact — please change `**Remote:** pending` to `**Remote:** [value]` manually." Then proceed to Phase 4.
 
 If `gh` is not available:
 Tell the user: "GitHub CLI is not installed. To connect a remote later, open the VS Code Source Control panel (branch icon in the left sidebar) and click **Publish to GitHub**. You can do this before your first `/vc-ship`."

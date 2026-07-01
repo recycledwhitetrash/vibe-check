@@ -1,11 +1,19 @@
 ---
 description: Embeds the vibe-check suite into an existing codebase — scans it into feature chunks, scaffolds git if needed, and writes plan stubs and roadmap entries for each chunk.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - AskUserQuestion
 ---
 <!-- AUTO-GENERATED from src/vc-onboard.md.tmpl — do not edit directly -->
 
 # /vc-onboard — Codebase Onboarding
 
-<!-- version: 2026-07-01.4 -->
+<!-- version: 2026-07-01.8 -->
 
 Run `/vc-onboard` once to embed the vibe-check suite into an existing project. It scans
 your codebase, breaks it into logical feature chunks, scaffolds git if needed, optionally
@@ -40,7 +48,7 @@ Read the JSON from stdout and check the `vc-onboard` entry.
 
 <output-handlers>
 
-**`vc-onboard` version matches `2026-07-01.4`**: proceed silently.
+**`vc-onboard` version matches `2026-07-01.8`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -62,7 +70,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-07-01.4`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-07-01.8`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -528,8 +536,259 @@ From the `git symbolic-ref` output: if it starts with `refs/remotes/origin/`, st
 <output-handlers>
 
 **`git rev-parse` failed** (no git repository):
-Tell the user: "No git repository found — initializing one now."
-Run:
+Tell the user: "No git repository found — setting up `.gitignore` before initializing, so VS Code's Source Control panel doesn't flag the full working tree as untracked."
+
+Run the security baseline check now, before `git init`:
+
+### Security baseline check
+
+Use the Read tool to read `.gitignore` (if it exists). Check whether the lines `# vibe-check security baseline start` and `# vibe-check security baseline end` are both present.
+
+**Both markers present**: read the content between the markers and compare it line-by-line to the current baseline block below. If the content matches exactly: skip. If it differs:
+- Use the Edit tool to replace everything from `# vibe-check security baseline start` through `# vibe-check security baseline end` (inclusive) with the updated baseline block below.
+- Tell the user: "Updated the vibe-check security baseline in `.gitignore`."
+
+**Markers absent** (or `.gitignore` does not exist):
+<mandatory>Call AskUserQuestion with:
+- Question: "No vibe-check security baseline was found in `.gitignore`. Add the security patterns now?"
+- Options:
+  - "Add security patterns"
+  - "Leave it as-is"
+</mandatory>
+If Add security patterns:
+- If `.gitignore` exists: use the Edit tool to append the security baseline block to the end of `.gitignore`.
+- If `.gitignore` does not exist: use the Write tool to create it with the full template below.
+If Leave it as-is: skip.
+
+**Full `.gitignore` template (for new files only):**
+
+```
+# ============================================================
+# Security — never commit secrets or credentials
+# ============================================================
+
+# vibe-check security baseline start
+# Environment variables and local config
+.env
+.env.*
+.envrc
+.envrc.*
+local_settings.py
+settings.py
+database.yml
+application_default_credentials.json
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+*.pkcs8
+*.jks
+*.keystore
+*.ppk
+id_rsa
+id_ecdsa
+id_ed25519
+id_dsa
+
+# Secret stores and credential files
+*.secret
+*.secrets
+*.vault
+*.enc
+*secrets*
+*password*
+*passwd*
+.netrc
+*credentials.json
+*service-account*.json
+*-key.json
+
+# Package manager auth
+.npmrc
+.yarnrc
+.yarnrc.yml
+.pypirc
+
+# Infrastructure secrets
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+kubeconfig
+*.kubeconfig
+google-services.json
+GoogleService-Info.plist
+docker-compose.override.yml
+docker-compose.*.yml
+wrangler.toml
+fly.toml
+.htpasswd
+htpasswd
+# vibe-check security baseline end
+
+# ============================================================
+# Installed packages and dependencies (never commit these)
+# ============================================================
+
+node_modules/
+.venv/
+venv/
+env/
+.env/
+__pycache__/
+*.pyc
+.bundle/
+vendor/bundle/
+.gradle/
+build/
+dist/
+target/
+
+# ============================================================
+# Framework and build tool caches
+# ============================================================
+
+.vite/
+.next/
+.nuxt/
+.svelte-kit/
+.parcel-cache/
+.turbo/
+.cache/
+
+# ============================================================
+# Test output
+# ============================================================
+
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+cypress/videos/
+cypress/screenshots/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ============================================================
+# Operating system files
+# ============================================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Editor files
+# ============================================================
+
+.idea/
+# .vscode/    ← uncomment this line to exclude VS Code settings from git
+
+# ============================================================
+# vibe-check local config (machine-specific, not for sharing)
+# ============================================================
+
+.vibe-check/vc-local.conf
+
+# ============================================================
+# How to add your own patterns
+# ============================================================
+#
+# Ignore a specific file:
+#   my-notes.txt
+#
+# Ignore all files with a given extension:
+#   *.log
+#
+# Ignore a whole folder and everything inside it:
+#   my-folder/
+#
+# Ignore a file only in the project root (not in subfolders):
+#   /config.local.json
+#
+# Ignore everything in a folder but keep the folder itself:
+#   temp/*
+#   !temp/.gitkeep
+
+```
+
+After any write or update: tell the user "If VS Code's Source Control panel still shows files that should now be ignored, click the **refresh icon** (↺) at the top of the Source Control panel — VS Code doesn't always pick up `.gitignore` changes automatically."
+
+**Current security baseline block:**
+
+```
+# vibe-check security baseline start
+# Environment variables and local config
+.env
+.env.*
+.envrc
+.envrc.*
+local_settings.py
+settings.py
+database.yml
+application_default_credentials.json
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+*.pkcs8
+*.jks
+*.keystore
+*.ppk
+id_rsa
+id_ecdsa
+id_ed25519
+id_dsa
+
+# Secret stores and credential files
+*.secret
+*.secrets
+*.vault
+*.enc
+*secrets*
+*password*
+*passwd*
+.netrc
+*credentials.json
+*service-account*.json
+*-key.json
+
+# Package manager auth
+.npmrc
+.yarnrc
+.yarnrc.yml
+.pypirc
+
+# Infrastructure secrets
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+kubeconfig
+*.kubeconfig
+google-services.json
+GoogleService-Info.plist
+docker-compose.override.yml
+docker-compose.*.yml
+wrangler.toml
+fly.toml
+.htpasswd
+htpasswd
+# vibe-check security baseline end
+```
+
+
+Then initialize git:
 ```bash
 git init
 ```
@@ -538,7 +797,7 @@ Then check the current branch:
 git branch --show-current
 ```
 If already on `main` (or the user's configured default), proceed to the **Commit step** directly.
-If on `master` or another name and the user prefers `main`, run `git checkout -b main` to rename it. Then proceed to the **Commit step**.
+If on `master` or another name and the user prefers `main`, run `git checkout -b main` to rename it. If the checkout fails, report the exact error and stop. Then proceed to the **Commit step**.
 
 **`git rev-parse` succeeded AND `git log` returned an error or empty output** (git exists, no commits):
 Tell the user: "Git is initialized but has no commits — committing the existing codebase as the baseline."
@@ -598,7 +857,9 @@ Skip the commit step. The codebase is already committed. Proceed to **Remote set
 
 ### Commit step (only when needed per above)
 
-**Before staging any files**, run the security baseline check:
+**Before staging any files**, run the security baseline check — unless you already ran it
+moments ago in the no-git-repository handler above (`git init` path), in which case skip
+straight to staging:
 
 ### Security baseline check
 
@@ -897,13 +1158,44 @@ Before pushing, ensure the current branch matches the noted default branch. If n
 - If it does not exist: run `git checkout -b [default-branch]` to create it from current HEAD
 - If it exists: run `git checkout [default-branch]`
 
+<gate>If either checkout command fails, report the exact error and stop. Do not run `gh repo create` while the wrong branch is checked out.</gate>
+
 Tell the user: "Running `gh repo create` to create the remote and push the baseline commit."
 Run:
 ```bash
 gh repo create --source=. --[private|public] --push
 ```
-Substitute `--private` or `--public` based on the user's answer. Report the result to the user. If it fails, tell the user and suggest: "Open the VS Code Source Control panel (branch icon in the left sidebar) and click **Publish to GitHub**."
-Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** [repo url, or "failed — add manually before /vc-ship"]`. After the Edit, use the Read tool to verify `**Remote:** pending` no longer appears. If it does, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact — please change `**Remote:** pending` to `**Remote:** [value]` manually."
+Substitute `--private` or `--public` based on the user's answer.
+
+<gate>Do not update the artifact or proceed to Phase 4 until this step resolves — either the command succeeds, or the user has explicitly chosen to skip via the AskUserQuestion below. A failed `gh repo create` is a decision point, not something to note and move past.</gate>
+
+**If it succeeds:** Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** [repo url]`. After the Edit, use the Read tool to verify `**Remote:** pending` no longer appears. If it does, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact — please change `**Remote:** pending` to `**Remote:** [value]` manually." Then proceed to Phase 4.
+
+**If it fails:** show the user the actual error text from the command output — do not paraphrase it away. Then:
+
+- **If the error indicates the repo name is already taken** (e.g. contains "already exists" / "Name already exists on this account"):
+  <mandatory>Call AskUserQuestion with:
+  - Question: "A GitHub repo with this name already exists on your account. How would you like to proceed?"
+  - Options:
+    - "Link the existing repo as this remote" — I'll paste its URL in Other
+    - "Try a different name" — I'll type the new name in Other
+    - "Skip — I'll set up a remote manually"
+  </mandatory>
+  - If linking existing: run `git remote add origin [url from Other]`, then `git push -u origin [default branch]`. If this fails too, show the error and fall through to the generic failure handling below.
+  - If different name: re-run `gh repo create --source=. --[private|public] --push --name "[name from Other]"`. If it fails again, show the error and fall through to the generic failure handling below.
+  - If skip: fall through to the generic failure handling below.
+
+- **Generic failure handling** (any other error, or a fallthrough from above):
+  <mandatory>Call AskUserQuestion with:
+  - Question: "Setting up the GitHub remote didn't succeed. How would you like to proceed?"
+  - Options:
+    - "Retry the same command"
+    - "Skip — I'll set up a remote manually"
+  </mandatory>
+  - If retry: re-run `gh repo create --source=. --[private|public] --push` once more. If it fails again, stop offering retries and treat as skip.
+  - If skip (or exhausted retry): tell the user: "Open the VS Code Source Control panel (branch icon in the left sidebar) and click **Publish to GitHub**."
+
+In every failure branch, once resolved (linked, renamed-and-created, or explicitly skipped): Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Remote:** pending` to `**Remote:** [repo url if now connected, or "failed — add manually before /vc-ship"]`. After the Edit, use the Read tool to verify `**Remote:** pending` no longer appears. If it does, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact — please change `**Remote:** pending` to `**Remote:** [value]` manually." Then proceed to Phase 4.
 
 If `gh` is not available:
 Tell the user: "GitHub CLI is not installed. To connect a remote later, open the VS Code Source Control panel (branch icon in the left sidebar) and click **Publish to GitHub**. You can do this before your first `/vc-ship`."
