@@ -13,7 +13,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-07-02.1 -->
+<!-- version: 2026-07-02.3 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -59,7 +59,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-07-02.1`**: proceed silently.
+**`vc-audit` version matches `2026-07-02.3`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -81,7 +81,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-07-02.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-07-02.3`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -140,7 +140,7 @@ waived by any phase-specific rule.
 
 ---
 
-<mandatory>**Communication discipline — applies to every phase, not just the surface walk.** Do not write text output narrating what you are about to do or why ("Now let me...", "I need to...", "Let me get it precisely", "Now appending...") before a tool call. Do not write text output explaining or justifying a finding, a verdict, or a fix ("Confirmed — ...", "This looks correct — ...", "That confirms...") — the receipt, the findings table row, or the pass log entry already records that; restating it in chat is pure duplication. The artifact is the record. Text output to the user is reserved for: phase-transition summaries, gate failures, AskUserQuestion prompts, and reporting a result the artifact format cannot show (e.g. a tool error). If you catch yourself narrating an intention or re-explaining a conclusion you're about to write down anyway, stop and just do the write.</mandatory>
+<mandatory>**Communication discipline — applies to every phase, not just the surface walk. Hard cap: 15 words.** Any text output you produce between tool calls that is not itself a receipt, a findings-table row, a pass-log entry, a phase-transition summary, a gate-failure report, or an AskUserQuestion prompt must be **15 words or fewer, total, for that turn**. This is a word-count limit, not a style guide — it applies no matter how you phrase it: reasoning about whether something is a finding, explaining why a fix is correct, narrating an intention, walking through candidates, describing what you're about to check next. If your reasoning takes more than 15 words to express, that is a signal to do the reasoning without emitting it as text and go straight to the artifact write or the next tool call — not to compress it into denser prose. The artifact is the record; restating or building up to its content in chat is pure duplication regardless of vocabulary.</mandatory>
 
 ---
 
@@ -726,7 +726,7 @@ If FILE_READ_MODE is true: use the Read tool to read the chunk file for this sur
 
 **Step 3 — Walk all selected lenses** against this surface. Follow the walk rules below. Follow dependencies into other files using the Read tool as required by the threat model.
 
-<mandatory>**Step 3 produces zero chat text.** This step is where you weigh whether something is a real finding — that evaluation happens without writing any of it to the user. Specifically prohibited, because it has been observed wasting output tokens: enumerating candidates in prose ("Candidate 1: ... Candidate 2: ... Candidate 3: ..."), narrating the investigation ("Looking at X: I don't see new issues...", "One thing stands out: ...", "Let's check for a real gap: ...", "This confirms an important finding...", "Now I have both lenses, so I need to look carefully..."), or explaining why something is or isn't a finding before recording the conclusion. If you conclude there's a real finding, the *first* text you produce is the artifact write (the finding row) or the Step 4 receipt citing it — not a paragraph building up to it. If you conclude there's nothing new, the only output is the Step 4 receipt's `Verdict: CLEAN`. The receipt already carries the file:line and the verbatim evidence — that is the finding's entire justification; it does not need a prose preamble first.</mandatory>
+<mandatory>**Step 3 produces zero chat text — 15-word hard cap on anything you do write.** This step is where you weigh whether something is a real finding — that evaluation happens without writing paragraphs of it to the user, regardless of phrasing (enumerated candidates, flowing prose, "this confirms," "one thing stands out," or any other wording — the cap is on length, not on matching a banned phrase). If you conclude there's a real finding, the *first* text you produce is the artifact write (the finding row) or the Step 4 receipt citing it — not a paragraph building up to it. If you conclude there's nothing new, the only output is the Step 4 receipt's `Verdict: CLEAN`. The receipt already carries the file:line and the verbatim evidence — that is the finding's entire justification; it does not need a prose preamble first, long or short.</mandatory>
 
 <mandatory>**Step 4 — After completing this surface, perform BOTH of the following writes before moving to the next surface:**
 
@@ -910,7 +910,7 @@ Do not proceed to Phase 5 until: `grep -c "- \[ \]"` = 0 AND `grep -c "^  Verdic
 ---
 
 <!-- COMPACT_HOOK_START -->
-<mandatory>**Communication discipline reminder.** No text output narrating intentions before a tool call ("Now let me...", "I need to...") and none justifying a finding/verdict/fix after one ("Confirmed — ...", "This looks correct — ..."). This includes investigating for new findings during the surface walk: do not enumerate candidates in prose ("Candidate 1: ... Candidate 2: ..."), and do not narrate the evaluation ("Looking at X: I don't see...", "One thing stands out...", "This confirms an important finding..."). That evaluation produces zero chat text — the first output is the artifact write itself (finding row or CLEAN receipt). The artifact (receipt, findings row, pass log entry) is the record — restating its content in chat, before or after writing it, wastes tokens. Text output only for phase transitions, gate failures, AskUserQuestion, or an error the artifact can't show.</mandatory>
+<mandatory>**Communication discipline reminder — 15-word hard cap.** Any text output between tool calls that isn't a receipt, findings row, pass-log entry, phase-transition summary, gate failure, or AskUserQuestion prompt is capped at **15 words total**, no matter how you phrase it — enumerated candidates, flowing prose, reworded reasoning, all of it. If you need more than 15 words to explain something, that's the signal to skip writing it and go straight to the artifact write instead. The artifact is the record — restating or building up to its content in chat wastes tokens regardless of vocabulary.</mandatory>
 
 <phase id="5" name="report">
 
@@ -1043,10 +1043,10 @@ Rules:
 8. In new or modified CSS: flag `:focus` where `:focus-visible` is appropriate; `overflow: hidden` on fixed-width flex containers that may clip dynamic content; missing `min-width: 0` on flex children that need to shrink.
 9. For any element that appears or disappears dynamically (conditional render, toggle, loading state), verify its container has `aria-live="polite"` so screen readers announce the change.
 
-Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash.
+Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash. **Your entire response is the finding line(s) above and nothing else** — no `## Summary` header, no restating what you checked or ruled out, no second copy of a finding repeated in a fenced block, no closing paragraph recapping the diff you reviewed. If your response contains any sentence that is not itself a `[FIXABLE|INVESTIGATE] | ...` line, delete that sentence before responding.
 [FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
 
-If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"
+If you find nothing new, your entire response is the three words `NO ADDITIONAL FINDINGS` — no preamble explaining what you checked, no paragraph justifying why nothing qualifies, no summary of patterns verified. Text before those three words is as much a protocol violation as text after them, even if accurate and well-reasoned. Silence about your process is correct here; only the verdict is wanted."
 
 **If FILE_READ_MODE is true** (chunk branch — no diff): substitute the artifact path into this prompt:
 
@@ -1077,10 +1077,10 @@ Rules:
 8. In CSS: flag `:focus` where `:focus-visible` is appropriate; `overflow: hidden` on fixed-width flex containers that may clip dynamic content; missing `min-width: 0` on flex children that need to shrink.
 9. For any element that appears or disappears dynamically (conditional render, toggle, loading state), verify its container has `aria-live="polite"` so screen readers announce the change.
 
-Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash.
+Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash. **Your entire response is the finding line(s) above and nothing else** — no `## Summary` header, no restating what you checked or ruled out, no second copy of a finding repeated in a fenced block, no closing paragraph recapping the diff you reviewed. If your response contains any sentence that is not itself a `[FIXABLE|INVESTIGATE] | ...` line, delete that sentence before responding.
 [FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
 
-If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"
+If you find nothing new, your entire response is the three words `NO ADDITIONAL FINDINGS` — no preamble explaining what you checked, no paragraph justifying why nothing qualifies, no summary of patterns verified. Text before those three words is as much a protocol violation as text after them, even if accurate and well-reasoned. Silence about your process is correct here; only the verdict is wanted."
 </mandatory>
 
 Process the subagent output and update the artifact:
@@ -1144,10 +1144,10 @@ Rules:
 2. Do not repeat findings already listed as Open in the artifact.
 3. Classify each finding as FIXABLE (you can state the fix direction) or INVESTIGATE (needs human judgment).
 
-Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash.
+Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash. **Your entire response is the finding line(s) above and nothing else** — no `## Summary` header, no restating what you checked or ruled out, no second copy of a finding repeated in a fenced block, no closing paragraph recapping the diff you reviewed. If your response contains any sentence that is not itself a `[FIXABLE|INVESTIGATE] | ...` line, delete that sentence before responding.
 [FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
 
-If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"
+If you find nothing new, your entire response is the three words `NO ADDITIONAL FINDINGS` — no preamble explaining what you checked, no paragraph justifying why nothing qualifies, no summary of patterns verified. Text before those three words is as much a protocol violation as text after them, even if accurate and well-reasoned. Silence about your process is correct here; only the verdict is wanted."
 
 **If FILE_READ_MODE is true** (chunk branch — no diff): substitute the artifact path into this prompt:
 
@@ -1159,10 +1159,10 @@ From the artifact, check the ## Findings section for any findings already listed
 
 Apply the same six patterns and three rules as the diff-based prompt above.
 
-Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash.
+Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash. **Your entire response is the finding line(s) above and nothing else** — no `## Summary` header, no restating what you checked or ruled out, no second copy of a finding repeated in a fenced block, no closing paragraph recapping the diff you reviewed. If your response contains any sentence that is not itself a `[FIXABLE|INVESTIGATE] | ...` line, delete that sentence before responding.
 [FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
 
-If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"</mandatory>
+If you find nothing new, your entire response is the three words `NO ADDITIONAL FINDINGS` — no preamble explaining what you checked, no paragraph justifying why nothing qualifies, no summary of patterns verified. Text before those three words is as much a protocol violation as text after them, even if accurate and well-reasoned. Silence about your process is correct here; only the verdict is wanted."</mandatory>
 
 Process the test integrity agent output: apply the same renumbering, deduplication, and table-append rules as the adversarial agent. Use `[test-integrity]` instead of `[adversarial]` in the Description field:
 - For each **FIXABLE** finding: `| F-NNN | pass N | [severity] (N/10) | file:line | [test-integrity] description | Open |`
