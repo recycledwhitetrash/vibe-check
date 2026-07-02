@@ -1,5 +1,5 @@
 {
-  "vc-audit":     { "version": "2026-07-01.5", "critical": true },
+  "vc-audit":     { "version": "2026-07-02.1", "critical": true },
   "vc-bootstrap": { "version": "2026-07-01.1", "critical": true },
   "vc-onboard":   { "version": "2026-07-01.10", "critical": true },
   "vc-plan":      { "version": "2026-07-01.1", "critical": true },

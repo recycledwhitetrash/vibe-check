@@ -13,7 +13,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-07-01.5 -->
+<!-- version: 2026-07-02.1 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -59,7 +59,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-07-01.5`**: proceed silently.
+**`vc-audit` version matches `2026-07-02.1`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -81,7 +81,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-07-01.5`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-07-02.1`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -726,6 +726,8 @@ If FILE_READ_MODE is true: use the Read tool to read the chunk file for this sur
 
 **Step 3 — Walk all selected lenses** against this surface. Follow the walk rules below. Follow dependencies into other files using the Read tool as required by the threat model.
 
+<mandatory>**Step 3 produces zero chat text.** This step is where you weigh whether something is a real finding — that evaluation happens without writing any of it to the user. Specifically prohibited, because it has been observed wasting output tokens: enumerating candidates in prose ("Candidate 1: ... Candidate 2: ... Candidate 3: ..."), narrating the investigation ("Looking at X: I don't see new issues...", "One thing stands out: ...", "Let's check for a real gap: ...", "This confirms an important finding...", "Now I have both lenses, so I need to look carefully..."), or explaining why something is or isn't a finding before recording the conclusion. If you conclude there's a real finding, the *first* text you produce is the artifact write (the finding row) or the Step 4 receipt citing it — not a paragraph building up to it. If you conclude there's nothing new, the only output is the Step 4 receipt's `Verdict: CLEAN`. The receipt already carries the file:line and the verbatim evidence — that is the finding's entire justification; it does not need a prose preamble first.</mandatory>
+
 <mandatory>**Step 4 — After completing this surface, perform BOTH of the following writes before moving to the next surface:**
 
 **Step 4a — Update the progress checklist.** Use the Edit tool to replace `- [ ] [Surface name]` with `- [x] [Surface name]` in `## Pass N progress`. Do not move to the next surface until this edit has succeeded. This is the resume record — skipping it makes compaction recovery impossible.
@@ -908,7 +910,7 @@ Do not proceed to Phase 5 until: `grep -c "- \[ \]"` = 0 AND `grep -c "^  Verdic
 ---
 
 <!-- COMPACT_HOOK_START -->
-<mandatory>**Communication discipline reminder.** No text output narrating intentions before a tool call ("Now let me...", "I need to...") and none justifying a finding/verdict/fix after one ("Confirmed — ...", "This looks correct — ..."). The artifact (receipt, findings row, pass log entry) is the record — restating its content in chat wastes tokens. Text output only for phase transitions, gate failures, AskUserQuestion, or an error the artifact can't show.</mandatory>
+<mandatory>**Communication discipline reminder.** No text output narrating intentions before a tool call ("Now let me...", "I need to...") and none justifying a finding/verdict/fix after one ("Confirmed — ...", "This looks correct — ..."). This includes investigating for new findings during the surface walk: do not enumerate candidates in prose ("Candidate 1: ... Candidate 2: ..."), and do not narrate the evaluation ("Looking at X: I don't see...", "One thing stands out...", "This confirms an important finding..."). That evaluation produces zero chat text — the first output is the artifact write itself (finding row or CLEAN receipt). The artifact (receipt, findings row, pass log entry) is the record — restating its content in chat, before or after writing it, wastes tokens. Text output only for phase transitions, gate failures, AskUserQuestion, or an error the artifact can't show.</mandatory>
 
 <phase id="5" name="report">
 
