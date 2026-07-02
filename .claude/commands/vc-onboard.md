@@ -13,7 +13,7 @@ allowed-tools:
 
 # /vc-onboard — Codebase Onboarding
 
-<!-- version: 2026-07-01.8 -->
+<!-- version: 2026-07-01.10 -->
 
 Run `/vc-onboard` once to embed the vibe-check suite into an existing project. It scans
 your codebase, breaks it into logical feature chunks, scaffolds git if needed, optionally
@@ -48,7 +48,7 @@ Read the JSON from stdout and check the `vc-onboard` entry.
 
 <output-handlers>
 
-**`vc-onboard` version matches `2026-07-01.8`**: proceed silently.
+**`vc-onboard` version matches `2026-07-01.10`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -70,7 +70,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-07-01.8`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-07-01.10`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -1354,7 +1354,31 @@ git add .vibe-check/
 git commit -m "chore: vc-onboard plan stubs and roadmap"
 ```
 
-<gate>Do not proceed to Phase 5 until the commit completes. If it fails, report the error and stop.</gate>
+<gate>Do not proceed until the commit completes. If it fails, report the error and stop.</gate>
+
+### Push to remote
+
+Read the `**Remote:**` field from `.vibe-check/vc-onboard.md`.
+
+**If it holds a repo URL** (remote is connected): push the commit just made.
+```bash
+git push
+```
+If this fails because no upstream is set (e.g. first push on a newly-created default branch), run `git push -u origin [default branch]` instead.
+
+<gate>Do not proceed to Phase 5 until the push succeeds or the user has explicitly chosen to skip it. A commit that only exists locally is not yet safe — it will not reach any other clone or machine, and is not protected against being lost if this working copy is ever reset or discarded.</gate>
+
+If the push fails:
+<mandatory>Call AskUserQuestion with:
+- Question: "Pushing the plan stubs and roadmap commit to the remote failed: [error]. This commit currently exists only in your local repo. How would you like to proceed?"
+- Options:
+  - "Retry the push"
+  - "Skip — I'll push manually later"
+</mandatory>
+If retry: re-run the push once more. If it fails again, stop offering retries and treat as skip.
+If skip (or exhausted retry): tell the user plainly: "The plan stubs and roadmap commit is local-only right now — it has not been pushed. Run `git push` before anyone else pulls or clones this branch, or the commit won't be there for them."
+
+**If `**Remote:**` is `skipped`, `skipped — gh not available`, or `failed — add manually before /vc-ship`** (no remote configured): skip pushing — there is nowhere to push to. Tell the user: "No remote is configured, so the plan stubs and roadmap commit exists only in this local repo for now. Once you connect a remote (see Phase 5 notes below), push main before doing any work from a different clone or machine."
 
 </phase>
 
@@ -1366,6 +1390,19 @@ git commit -m "chore: vc-onboard plan stubs and roadmap"
 
 Use the Edit tool to update `.vibe-check/vc-onboard.md`: change `**Status:** in progress`
 to `**Status:** complete`. After the Edit, use the Read tool to verify `**Status:** complete` appears in the artifact. If it does not, re-attempt once. If it still fails, tell the user: "Could not update the onboard artifact status — please change `**Status:** in progress` to `**Status:** complete` manually."
+
+Commit this status change so the working tree doesn't sit dirty (this would otherwise trip the uncommitted-changes checks in `/vc-plan` and `/vc-ship` the next time they run):
+```bash
+git add .vibe-check/vc-onboard.md
+git commit -m "chore: mark vc-onboard complete"
+```
+If the commit fails, tell the user the exact error but continue — this is bookkeeping, not user work, so it should not block the summary below.
+
+Re-read the `**Remote:**` field from the artifact. If it holds a repo URL, push:
+```bash
+git push
+```
+If this fails, tell the user: "The final status-complete commit didn't push — run `git push` manually when convenient." Do not block on this either; continue to the summary below regardless of push outcome.
 
 Tell the user the following:
 

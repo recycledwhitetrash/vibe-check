@@ -542,7 +542,9 @@ For each surface, list the file paths associated with it from the surface map (s
 
 A surface that is walked but never added to the surface map table is invisible to all future passes — it will not appear in the next `## Pass N progress` section and will be silently skipped forever.</mandatory>
 
-<mandatory>**Do not narrate surface status before running Step 2.** Writing any text output to the user about a surface — e.g., "Surface 1: spotifyFetch — CLEAN", "no changes since pass N", "unchanged", "same as last pass" — before completing Steps 2–3 for that surface is prohibited. Run the diff or Read command first; report only after you have the output in context. The first thing you do for each `[ ]` surface is Step 1 (sensitive file check), then Step 2 (diff or Read) — not announcing its status.</mandatory>
+<mandatory>**Do not narrate surface status before running Step 2.** Writing any text output to the user about a surface — e.g., "Surface 1: spotifyFetch — CLEAN", "no changes since pass N", "unchanged", "same as last pass" — before completing Steps 2–3 for that surface is prohibited. Run the diff or Read command first; report only after you have the output in context. The first thing you do for each `[ ]` surface is Step 1 (sensitive file check), then Step 2 (diff or Read) — not announcing its status.
+
+**Do not narrate after Step 2 either.** Once the receipt (Step 4b) is written, that receipt is the record — do not add extra prose praising or explaining a routine pass/fail result (e.g., "Good — that assertion correctly catches the bug, confirming the fix works as intended," or announcing you're going to "double-check" something the receipt already covers). Move directly to the next surface or step. Only write user-facing text for something the receipt format doesn't already capture: a phase transition, a gate failure, or a question that needs the user's input.</mandatory>
 
 **Step 1 — Sensitive file check.** If the surface file(s) match any pattern in the Sensitive File Protection section, skip the diff and record a finding per the Sensitive File Protection rules. Use the Edit tool to mark the surface `[x]` in `## Pass N progress`. Move to the next surface.
 
@@ -838,9 +840,9 @@ Count must be **0**. If **> 0**: the `## Pass N progress` section still exists �
 
 The adversarial subagent always runs. Collect its result now:
 
-<mandatory>Collect the background subagent result dispatched at the start of Phase 4. The subagent ran in parallel while the main walk executed — its findings should now be available. If it has not yet completed, wait for it now.
+<mandatory>Collect the background subagent result dispatched at the start of Phase 4. **First check whether a `<task-notification>` for this task ID already appeared earlier in this conversation** — if so, its `<result>` is the full output; use that text directly and do not call TaskOutput again. Only call TaskOutput if no notification for this task has appeared yet. If it has not completed and no notification has arrived, continue with other Phase 5 work and let the notification arrive on its own — do not poll TaskOutput in a loop or call it against a task you have reason to believe is still running; a poll against a running task can return a raw partial transcript instead of a clean result.
 
-The subagent prompt used was the one below (for reference — do not re-dispatch). Process the returned output: for each finding, check whether the same issue is already recorded as a row with Status = Open in the findings table. If a duplicate exists, skip it. Add any non-duplicate findings to the findings table using the same F-NNN numbering sequence.
+The subagent prompt used was the one below (for reference — do not re-dispatch). Process the returned output (whichever way you obtained it above): for each finding, check whether the same issue is already recorded as a row with Status = Open in the findings table. If a duplicate exists, skip it. Add any non-duplicate findings to the findings table using the same F-NNN numbering sequence.
 
 The subagent prompt (for reference only — already dispatched):
 
@@ -877,7 +879,7 @@ Rules:
 8. In new or modified CSS: flag `:focus` where `:focus-visible` is appropriate; `overflow: hidden` on fixed-width flex containers that may clip dynamic content; missing `min-width: 0` on flex children that need to shrink.
 9. For any element that appears or disappears dynamically (conditional render, toggle, loading state), verify its container has `aria-live="polite"` so screen readers announce the change.
 
-Output one finding per line in this format:
+Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash.
 [FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
 
 If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"
@@ -911,7 +913,7 @@ Rules:
 8. In CSS: flag `:focus` where `:focus-visible` is appropriate; `overflow: hidden` on fixed-width flex containers that may clip dynamic content; missing `min-width: 0` on flex children that need to shrink.
 9. For any element that appears or disappears dynamically (conditional render, toggle, loading state), verify its container has `aria-live="polite"` so screen readers announce the change.
 
-Output one finding per line in this format:
+Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash.
 [FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
 
 If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"
@@ -930,12 +932,14 @@ Example: the artifact already has F-001 through F-005. The subagent returns find
 - For each **INVESTIGATE** finding: assign the next F-NNN number from the counter above; append a row to the findings table with Status = Open. Include `[adversarial][INVESTIGATE]` in the Description field:
   `| F-NNN | pass N | [severity] (6/10) | file:line | [adversarial][INVESTIGATE] description | Open |`
   These go through the same fix/defer/dismiss decision protocol in Phase 6 as any other finding.
+
+<mandatory>**Column discipline.** The Severity column is exactly `[severity] (N/10)` and nothing else — never append `[adversarial]`, `[test-integrity]`, or `[INVESTIGATE]` there. Those tags open the Description column, as the first word(s) before the description text. Wrong: `| F-007 | pass 1 | high (7/10) [adversarial][INVESTIGATE] | file:line | text | Open |`. Right: `| F-007 | pass 1 | high (7/10) | file:line | [adversarial][INVESTIGATE] text | Open |`.</mandatory>
 - If **NO ADDITIONAL FINDINGS**: append to the pass log: `Adversarial pass: no additional findings.`
 - If the subagent is **unavailable or errors**: append to the pass log: `Adversarial pass: unavailable.` Proceed to the test integrity pass.
 
 ### Test integrity pass
 
-<mandatory>Collect the background test integrity agent result dispatched at the start of Phase 4. If it has not yet completed, wait for it now.
+<mandatory>Collect the background test integrity agent result dispatched at the start of Phase 4. **First check whether a `<task-notification>` for this task ID already appeared earlier in this conversation** — if so, its `<result>` is the full output; use that text directly and do not call TaskOutput again. Only call TaskOutput if no notification for this task has appeared yet. If it has not completed and no notification has arrived, continue with other Phase 5 work and let the notification arrive on its own — do not poll TaskOutput in a loop or call it against a task you have reason to believe is still running; a poll against a running task can return a raw partial transcript instead of a clean result.
 
 The test integrity agent reads only test files from the diff and checks for correctness issues that the main walk typically misses. Process its output the same way as the adversarial agent: renumber all findings using the next F-NNN from the counter (read the findings table first to get the current highest ID), skip any finding that duplicates an existing Open row.
 
@@ -976,7 +980,7 @@ Rules:
 2. Do not repeat findings already listed as Open in the artifact.
 3. Classify each finding as FIXABLE (you can state the fix direction) or INVESTIGATE (needs human judgment).
 
-Output one finding per line in this format:
+Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash.
 [FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
 
 If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"
@@ -991,7 +995,7 @@ From the artifact, check the ## Findings section for any findings already listed
 
 Apply the same six patterns and three rules as the diff-based prompt above.
 
-Output one finding per line in this format:
+Output one finding per line, and keep each finding to that one line — no fenced code blocks (```), no multi-sentence paragraphs, no "specifically verified as sound" asides about findings you are NOT reporting. You already did the verification by reading the file; the output only needs to state the conclusion. If you need to cite code, use at most one short inline `backtick quote` (a phrase or a single short line) — not a fenced block. Target ≤40 words after the em dash.
 [FIXABLE|INVESTIGATE] | [critical|high|medium|low] | file:line — what the problem is; what it allows or causes; fix direction or what to investigate
 
 If you find nothing new, output exactly: NO ADDITIONAL FINDINGS"</mandatory>
@@ -1001,6 +1005,8 @@ Process the test integrity agent output: apply the same renumbering, deduplicati
 - For each **INVESTIGATE** finding: `| F-NNN | pass N | [severity] (6/10) | file:line | [test-integrity][INVESTIGATE] description | Open |`
 - If **NO ADDITIONAL FINDINGS**: append to the pass log: `Test integrity pass: no additional findings.`
 - If the agent is **unavailable or errors**: append to the pass log: `Test integrity pass: unavailable.`
+
+<mandatory>**Column discipline.** The Severity column is exactly `[severity] (N/10)` and nothing else — never append `[test-integrity]` or `[INVESTIGATE]` there. Those tags open the Description column, as the first word(s) before the description text. Wrong: `| F-008 | pass 1 | medium (6/10) [test-integrity][INVESTIGATE] | file:line | text | Open |`. Right: `| F-008 | pass 1 | medium (6/10) | file:line | [test-integrity][INVESTIGATE] text | Open |`.</mandatory>
 
 Continue to Phase 6.
 
