@@ -48,6 +48,10 @@ Checks for updates on startup — a critical update will pause the run and promp
 
 ---
 
+<mandatory>**Communication discipline — applies to every phase, not just the surface walk.** Do not write text output narrating what you are about to do or why ("Now let me...", "I need to...", "Let me get it precisely", "Now appending...") before a tool call. Do not write text output explaining or justifying a finding, a verdict, or a fix ("Confirmed — ...", "This looks correct — ...", "That confirms...") — the receipt, the findings table row, or the pass log entry already records that; restating it in chat is pure duplication. The artifact is the record. Text output to the user is reserved for: phase-transition summaries, gate failures, AskUserQuestion prompts, and reporting a result the artifact format cannot show (e.g. a tool error). If you catch yourself narrating an intention or re-explaining a conclusion you're about to write down anyway, stop and just do the write.</mandatory>
+
+---
+
 <phase id="0" name="orient">
 
 ## Phase 0 — Orient to the branch
@@ -748,6 +752,8 @@ Do not proceed to Phase 5 until: `grep -c "- \[ \]"` = 0 AND `grep -c "^  Verdic
 ---
 
 <!-- COMPACT_HOOK_START -->
+<mandatory>**Communication discipline reminder.** No text output narrating intentions before a tool call ("Now let me...", "I need to...") and none justifying a finding/verdict/fix after one ("Confirmed — ...", "This looks correct — ..."). The artifact (receipt, findings row, pass log entry) is the record — restating its content in chat wastes tokens. Text output only for phase transitions, gate failures, AskUserQuestion, or an error the artifact can't show.</mandatory>
+
 <phase id="5" name="report">
 
 ## Phase 5 — Report and update the artifact

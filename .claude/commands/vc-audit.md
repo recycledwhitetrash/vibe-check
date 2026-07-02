@@ -13,7 +13,7 @@ allowed-tools:
 
 # /vc-audit — Branch Deep Walk Audit
 
-<!-- version: 2026-07-01.3 -->
+<!-- version: 2026-07-01.5 -->
 
 Drop `/vc-audit` at the start of any review session. It orients itself to the branch,
 selects the right lenses for the code it finds, and walks every changed surface against
@@ -59,7 +59,7 @@ Read the JSON from stdout and check the `vc-audit` entry.
 
 <output-handlers>
 
-**`vc-audit` version matches `2026-07-01.3`**: proceed silently.
+**`vc-audit` version matches `2026-07-01.5`**: proceed silently.
 
 **Newer version available, `critical` is false**:
 <mandatory>Call AskUserQuestion with:
@@ -81,7 +81,7 @@ If Update now: follow the **Auto-update** steps below, then stop.
 If Update now: follow the **Auto-update** steps below, then stop.
 If Continue: proceed to Phase 0.
 
-**Fetched version is older than `2026-07-01.3`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
+**Fetched version is older than `2026-07-01.5`**: proceed silently. (This can happen with CDN caching or a rollback — the local version is already newer.)
 
 </output-handlers>
 
@@ -137,6 +137,10 @@ waived by any phase-specific rule.
 
 </protected>
 
+
+---
+
+<mandatory>**Communication discipline — applies to every phase, not just the surface walk.** Do not write text output narrating what you are about to do or why ("Now let me...", "I need to...", "Let me get it precisely", "Now appending...") before a tool call. Do not write text output explaining or justifying a finding, a verdict, or a fix ("Confirmed — ...", "This looks correct — ...", "That confirms...") — the receipt, the findings table row, or the pass log entry already records that; restating it in chat is pure duplication. The artifact is the record. Text output to the user is reserved for: phase-transition summaries, gate failures, AskUserQuestion prompts, and reporting a result the artifact format cannot show (e.g. a tool error). If you catch yourself narrating an intention or re-explaining a conclusion you're about to write down anyway, stop and just do the write.</mandatory>
 
 ---
 
@@ -904,6 +908,8 @@ Do not proceed to Phase 5 until: `grep -c "- \[ \]"` = 0 AND `grep -c "^  Verdic
 ---
 
 <!-- COMPACT_HOOK_START -->
+<mandatory>**Communication discipline reminder.** No text output narrating intentions before a tool call ("Now let me...", "I need to...") and none justifying a finding/verdict/fix after one ("Confirmed — ...", "This looks correct — ..."). The artifact (receipt, findings row, pass log entry) is the record — restating its content in chat wastes tokens. Text output only for phase transitions, gate failures, AskUserQuestion, or an error the artifact can't show.</mandatory>
+
 <phase id="5" name="report">
 
 ## Phase 5 — Report and update the artifact
